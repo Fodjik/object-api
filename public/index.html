@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Object Storage</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input, select, button { margin: 5px; padding: 5px; }
+    .object-card { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+
+  <h1>Object Storage</h1>
+  
+  <button onclick="showForm()">New Object</button>
+  <button onclick="loadObjects()">Storage</button>
+
+  <div id="formSection" style="display:none;">
+    <h2>Create/Edit Object</h2>
+    <input id="objectId" type="hidden" />
+    <input id="name" placeholder="Name" /><br/>
+    <input id="length" placeholder="Length (e.g. 1.5)" /><br/>
+    <input id="width" placeholder="Width" /><br/>
+    <input id="depth" placeholder="Depth" /><br/>
+    <input id="surface" placeholder="Surface" /><br/>
+    <select id="location">
+      <option value="A">A</option>
+      <option value="B">B</option>
+      <option value="C">C</option>
+    </select><br/>
+    <button onclick="saveObject()">Save</button>
+  </div>
+
+  <div>
+    <h2>Storage</h2>
+    <input id="filter" placeholder="Search by name/location" oninput="loadObjects()" />
+    <div id="objectList"></div>
+  </div>
+
+  <script>
+    const API_URL = 'https://object-api-j9uw.onrender.com'; 
+
+    async function saveObject() {
+      const id = document.getElementById('objectId').value;
+      const obj = {
+        name: document.getElementById('name').value,
+        length: parseFloat(document.getElementById('length').value),
+        width: parseFloat(document.getElementById('width').value),
+        depth: parseFloat(document.getElementById('depth').value),
+        surface: document.getElementById('surface').value,
+        location: document.getElementById('location').value
+      };
+
+      if (id) {
+        await fetch(`${API_URL}/objects/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(obj)
+        });
+      } else {
+        await fetch(`${API_URL}/objects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(obj)
+        });
+      }
+      clearForm();
+      loadObjects();
+    }
+
+    async function loadObjects() {
+      const res = await fetch(`${API_URL}/objects`);
+      const { data } = await res.json();
+      const filter = document.getElementById('filter').value.toLowerCase();
+      const list = document.getElementById('objectList');
+      list.innerHTML = '';
+      data
+        .filter(o => o.name.toLowerCase().includes(filter) || o.location.toLowerCase().includes(filter))
+        .forEach(obj => {
+          const div = document.createElement('div');
+          div.className = 'object-card';
+          div.innerHTML = `
+            <b>${obj.name}</b> (Location: ${obj.location})<br/>
+            ${obj.length} × ${obj.width} × ${obj.depth}, Surface: ${obj.surface}<br/>
+            <button onclick="editObject('${obj.id}')">Edit</button>
+            <button onclick="deleteObject('${obj.id}')">Delete</button>
+            <button onclick="generateQR('${obj.name}')">QR</button>
+          `;
+          list.appendChild(div);
+        });
+    }
+
+    async function deleteObject(id) {
+      await fetch(`${API_URL}/objects/${id}`, { method: 'DELETE' });
+      loadObjects();
+    }
+
+    async function editObject(id) {
+      const res = await fetch(`${API_URL}/objects`);
+      const { data } = await res.json();
+      const obj = data.find(o => o.id === id);
+      document.getElementById('objectId').value = obj.id;
+      document.getElementById('name').value = obj.name;
+      document.getElementById('length').value = obj.length;
+      document.getElementById('width').value = obj.width;
+      document.getElementById('depth').value = obj.depth;
+      document.getElementById('surface').value = obj.surface;
+      document.getElementById('location').value = obj.location;
+      showForm();
+    }
+
+    function clearForm() {
+      document.getElementById('objectId').value = '';
+      document.getElementById('formSection').style.display = 'none';
+      document.querySelectorAll('input').forEach(el => el.value = '');
+    }
+
+    function showForm() {
+      document.getElementById('formSection').style.display = 'block';
+    }
+
+    function generateQR(text) {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`;
+      const link = document.createElement('a');
+      link.href = qrUrl;
+      link.download = `${text}.png`;
+      link.click();
+    }
+
+    loadObjects();
+  </script>
+</body>
+</html>

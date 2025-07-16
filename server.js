@@ -45,3 +45,13 @@ app.use(express.static('public'));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+
+app.post('/objects', async (req, res) => {
+  console.log('POST /objects body:', req.body); // 🐛 Логируем
+  const { data, error } = await supabase.from('objects').insert([req.body]);
+  if (error) {
+    console.error('Supabase insert error:', error); // 🐛 Логируем ошибку
+  }
+  res.json({ data, error });
+});

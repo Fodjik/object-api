@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -37,4 +38,10 @@ app.delete('/objects/:id', async (req, res) => {
 
 app.listen(process.env.PORT || 3000, () => {
   console.log('Server running...');
+});
+
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

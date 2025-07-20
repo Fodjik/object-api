@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Register</h2>
+  <form id="register-form">
+    <label>Email: <input type="email" id="email" required /></label>
+    <label>Password: <input type="password" id="password" required /></label>
+    <p id="register-error" class="error hidden"></p>
+    <button type="submit">Register</button>
+  </form>
+  <script>
+    const supabase = (await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')).createClient(
+      'https://uhqwehrlhoaeqhmsazpb.supabase.co', 
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE' 
+    );
+
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorElement = document.getElementById('register-error');
+
+      try {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        await supabase.from('users').insert({ id: data.user.id, email });
+        errorElement.textContent = 'Registration successful. Awaiting admin approval.';
+        errorElement.classList.remove('hidden');
+      } catch (error) {
+        errorElement.textContent = 'Registration failed: ' + error.message;
+        errorElement.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

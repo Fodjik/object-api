@@ -19,7 +19,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 // Middleware to check authentication and approval
 const requireAuth = async (req, res, next) => {
-  const { user } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { data: userData } = await supabase.from('users').select('is_approved').eq('id', user.id).single();
   if (!userData || !userData.is_approved) return res.status(403).json({ error: 'Not approved' });
@@ -107,7 +107,7 @@ app.delete('/api/objects/:id', requireAuth, async (req, res) => {
 app.get('/api/users', requireAuth, async (req, res) => {
   console.log('GET /api/users');
   try {
-    const { data: userData } = await supabase.from('users').select('id, email, is_approved, is_admin').single();
+    const { data: userData } = await supabase.from('users').select('is_admin').eq('id', (await supabase.auth.getUser()).data.user.id).single();
     if (!userData.is_admin) return res.status(403).json({ error: 'Admin access required' });
     const { data, error } = await supabase.from('users').select('id, email, is_approved, is_admin');
     if (error) throw error;
@@ -141,6 +141,7 @@ app.post('/api/users/make-admin/:id', requireAuth, async (req, res) => {
     const { data, error } = await supabase.from('users').update({ is_admin: true }).eq('id', req.params.id);
     if (error) throw error;
     if (!data.length) return res.status(404).json({ error: 'User not found' });
+    res.json({ message: 'User made admin' });
   } catch (error) {
     console.error('Error making user admin:', error.message);
     res.status(500).json({ error: error.message });

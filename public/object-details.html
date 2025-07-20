@@ -4,45 +4,40 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Object Details</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    .error { color: red; }
+    .details { margin: 10px 0; }
+    .action-btn { margin-right: 5px; }
   </style>
 </head>
 <body>
   <h2>Object Details</h2>
   <div id="object-details"></div>
-  <p id="error" class="error hidden"></p>
-  <button onclick="window.location.href='/'">Back to Home</button>
-
+  <button class="action-btn" onclick="window.history.back()">Back</button>
   <script>
-    console.log('Object details page loaded');
-    async function loadObjectDetails() {
-      const id = window.location.pathname.split('/').pop();
-      console.log('Loading object with ID:', id);
-      const detailsDiv = document.getElementById('object-details');
-      const errorElement = document.getElementById('error');
+    const BASE_URL = 'https://object-api-j9uw.onrender.com';
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('id');
 
+    async function loadObject() {
       try {
-        const response = await axios.get(`/api/objects/${id}`);
+        const response = await axios.get(`${BASE_URL}/api/objects/${id}`);
         const obj = response.data;
-        detailsDiv.innerHTML = `
-          <p><strong>Name:</strong> ${obj.name}</p>
-          <p><strong>Length:</strong> ${obj.length} cm</p>
-          <p><strong>Width:</strong> ${obj.width} cm</p>
-          <p><strong>Depth:</strong> ${obj.depth} cm</p>
-          <p><strong>Surface:</strong> ${obj.surface}</p>
-          <p><strong>Location:</strong> ${obj.location}</p>
+        document.getElementById('object-details').innerHTML = `
+          <div class="details">Name: ${obj.name}</div>
+          <div class="details">Length: ${obj.length} cm</div>
+          <div class="details">Width: ${obj.width} cm</div>
+          <div class="details">Depth: ${obj.depth} cm</div>
+          <div class="details">Surface: ${obj.surface}</div>
+          <div class="details">Location: ${obj.location}</div>
         `;
       } catch (error) {
-        console.error('Error fetching object:', error);
-        errorElement.textContent = 'Error: ' + (error.response?.data?.error || error.message);
-        errorElement.classList.remove('hidden');
+        console.error('Error loading object:', error);
+        document.getElementById('object-details').innerHTML = 'Error loading object.';
       }
     }
 
-    loadObjectDetails();
+    loadObject();
   </script>
 </body>
 </html>

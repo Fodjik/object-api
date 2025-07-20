@@ -13,17 +13,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing SUPABASE_URL or SUPABASE_KEY in .env');
+  process.exit(1);
+}
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: { persistSession: false }
 });
+console.log('Supabase initialized with URL:', supabaseUrl);
 
 // Middleware to check authentication and approval
 const requireAuth = async (req, res, next) => {
+  console.log('Checking auth for', req.path);
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { data: userData } = await supabase.from('users').select('is_approved').eq('id', user.id).single();
   if (!userData || !userData.is_approved) return res.status(403).json({ error: 'Not approved' });
   req.user = user;
+  console.log('Auth successful for', user.email);
   next();
 };
 

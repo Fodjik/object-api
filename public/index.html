@@ -167,42 +167,44 @@
     });
 
     async function renderObjects() {
-      console.log('Rendering objects');
-      const filterName = document.getElementById('filter-name').value.toLowerCase();
-      const filterLocation = document.getElementById('filter-location').value;
-      const table = document.getElementById('object-table');
-      table.innerHTML = '';
+  console.log('Rendering objects');
+  const filterName = document.getElementById('filter-name').value.toLowerCase();
+  const filterLocation = document.getElementById('filter-location').value;
+  const table = document.getElementById('object-table');
+  table.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
 
-      try {
-        const response = await axios.get('/api/objects');
-        const objects = response.data;
+  try {
+    const response = await axios.get('/api/objects');
+    const objects = response.data;
 
-        objects.forEach((obj) => {
-          if (
-            obj.name.toLowerCase().includes(filterName) &&
-            (!filterLocation || obj.location === filterLocation)
-          ) {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-              <td><a href="/object/${obj.id}">${obj.name}</a></td>
-              <td>${obj.length}</td>
-              <td>${obj.width}</td>
-              <td>${obj.depth}</td>
-              <td>${obj.surface}</td>
-              <td>${obj.location}</td>
-              <td>
-                <button class="action-btn" onclick="editObject(${obj.id})">Edit</button>
-                <button class="action-btn" onclick="deleteObject(${obj.id})">Delete</button>
-                <button class="action-btn" onclick="showQRCode(${obj.id})">QR</button>
-              </td>
-            `;
-            table.appendChild(row);
-          }
-        });
-      } catch (error) {
-        console.error('Error fetching objects:', error);
+    table.innerHTML = '';
+    objects.forEach((obj) => {
+      if (
+        obj.name.toLowerCase().includes(filterName) &&
+        (!filterLocation || obj.location === filterLocation)
+      ) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><a href="/object/${obj.id}">${obj.name}</a></td>
+          <td>${obj.length}</td>
+          <td>${obj.width}</td>
+          <td>${obj.depth}</td>
+          <td>${obj.surface}</td>
+          <td>${obj.location}</td>
+          <td>
+            <button class="action-btn" onclick="editObject(${obj.id})">Edit</button>
+            <button class="action-btn" onclick="deleteObject(${obj.id})">Delete</button>
+            <button class="action-btn" onclick="showQRCode(${obj.id})">QR</button>
+          </td>
+        `;
+        table.appendChild(row);
       }
-    }
+    });
+  } catch (error) {
+    console.error('Error fetching objects:', error);
+    table.innerHTML = '<tr><td colspan="7">Error loading objects. Check console.</td></tr>';
+  }
+}
 
     async function editObject(id) {
       console.log('Editing object with ID:', id);

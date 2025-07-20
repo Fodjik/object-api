@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Object Storage App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -22,10 +23,10 @@
 </head>
 <body>
   <nav>
-    <button onclick="showPage('new-or-edit-object')" id="new-object-btn">New Object</button>
-    <button onclick="showPage('storage')">Storage</button>
-    <button onclick="showPage('login')">Login</button>
-    <button onclick="showPage('register')">Register</button>
+    <button id="new-object-btn">New Object</button>
+    <button>Storage</button>
+    <button>Login</button>
+    <button>Register</button>
     <span id="user-status"></span>
   </nav>
 
@@ -54,9 +55,9 @@
   <!-- Storage Page -->
   <div id="storage" class="hidden">
     <h2>Storage</h2>
-    <label>Filter by name: <input type="text" id="filter-name" oninput="renderObjects()" /></label>
+    <label>Filter by name: <input type="text" id="filter-name" /></label>
     <label>Filter by location:
-      <select id="filter-location" onchange="renderObjects()">
+      <select id="filter-location">
         <option value="">All</option>
         <option value="A">A</option>
         <option value="B">B</option>
@@ -83,240 +84,177 @@
   <div id="qr-modal" class="hidden">
     <h3>QR Code</h3>
     <div id="qrcode"></div>
-    <button onclick="downloadQRCode()">Download QR as PNG</button>
-    <button onclick="downloadQRCodeAsPDF()">Download QR as PDF</button>
-    <button onclick="closeQRModal()">Close</button>
+    <button>Download QR as PNG</button>
+    <button>Download QR as PDF</button>
+    <button>Close</button>
   </div>
 
-<script>
-  const BASE_URL = 'https://object-api-j9uw.onrender.com';
+  <script>
+    console.log('Script loaded');
+    const BASE_URL = 'https://object-api-j9uw.onrender.com';
 
-  // Load dependencies
-  const { createClient } = window['@supabase/supabase-js'] || {};
-  if (!createClient) {
-    console.error('Supabase JS not loaded');
-    return;
-  }
-  const supabase = createClient('https://uhqwehrlhoaeqhmsazpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE'); 
-  if (!supabase) {
-    console.error('Supabase client initialization failed');
-    return;
-  }
+    // Initialize Supabase
+    const supabase = createClient('https://uhqwehrlhoaeqhmsazpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE');
+    if (!supabase) console.error('Supabase initialization failed');
 
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('Page loaded');
-    checkAuthStatus();
-    renderObjects();
-    setupEventListeners();
-  });
-
-  async function checkAuthStatus() {
-    const { data: { user } } = await supabase.auth.getUser();
-    const userStatus = document.getElementById('user-status');
-    const newObjectBtn = document.getElementById('new-object-btn');
-    if (user) {
-      userStatus.textContent = `Logged in as ${user.email} (Logout)`;
-      userStatus.onclick = () => supabase.auth.signOut().then(() => location.reload());
-      newObjectBtn.disabled = false;
-    } else {
-      userStatus.textContent = 'Not logged in';
-      newObjectBtn.disabled = true;
-    }
-  }
-
-  function setupEventListeners() {
-    console.log('Setting up event listeners');
-    // Navigation buttons
-    document.querySelectorAll('nav button').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const page = btn.getAttribute('id') === 'new-object-btn' ? 'new-or-edit-object' : btn.textContent.toLowerCase();
-        showPage(page);
-        console.log(`Navigated to ${page}`);
-      });
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('DOM loaded');
+      checkAuthStatus();
+      setupEventListeners();
+      renderObjects();
     });
 
-    // Form submission
-    const form = document.getElementById('object-form');
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        console.log('Form submitted');
-        const errorElement = document.getElementById('form-error');
-        const id = document.getElementById('edit-id').value;
-        const length = document.getElementById('length').value.replace(',', '.');
-        const width = document.getElementById('width').value.replace(',', '.');
-        const depth = document.getElementById('depth').value.replace(',', '.');
-
-        if (isNaN(parseFloat(length)) || isNaN(parseFloat(width)) || isNaN(parseFloat(depth))) {
-          errorElement.textContent = 'Please enter valid numbers.';
-          errorElement.classList.remove('hidden');
-          return;
-        }
-
-        const object = {
-          name: document.getElementById('name').value,
-          length: parseFloat(length),
-          width: parseFloat(width),
-          depth: parseFloat(depth),
-          surface: document.getElementById('surface').value,
-          location: document.getElementById('location').value
-        };
-
-        try {
-          if (id) await axios.put(`${BASE_URL}/api/objects/${id}`, object);
-          else await axios.post(`${BASE_URL}/api/objects`, object);
-          form.reset();
-          document.getElementById('edit-id').value = '';
-          errorElement.classList.add('hidden');
-          showPage('storage');
-        } catch (error) {
-          console.error('Error saving:', error);
-          errorElement.textContent = error.response?.data?.error || error.message;
-          errorElement.classList.remove('hidden');
-        }
-      });
-    }
-
-    // Action buttons (Edit, Delete, QR)
-    document.querySelectorAll('#object-table .action-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const row = btn.closest('tr');
-        const id = row.querySelector('a')?.href.split('/').pop();
-        if (id) {
-          console.log(`Button clicked: ${btn.textContent} for ID ${id}`);
-          if (btn.textContent === 'Edit') editObject(id);
-          else if (btn.textContent === 'Delete') deleteObject(id);
-          else if (btn.textContent === 'QR') showQRCode(id);
-        }
-      });
-    });
-
-    // QR Modal buttons
-    document.querySelectorAll('#qr-modal button').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (btn.textContent === 'Close') closeQRModal();
-        else if (btn.textContent === 'Download QR as PNG') downloadQRCode();
-        else if (btn.textContent === 'Download QR as PDF') downloadQRCodeAsPDF();
-      });
-    });
-  }
-
-  function showPage(page) {
-    document.getElementById('new-or-edit-object')?.classList.add('hidden');
-    document.getElementById('storage')?.classList.add('hidden');
-    document.getElementById('login')?.classList.add('hidden');
-    document.getElementById('register')?.classList.add('hidden');
-    const target = document.getElementById(page);
-    if (target) {
-      target.classList.remove('hidden');
-      if (page === 'new-or-edit-object') {
-        document.getElementById('form-title').textContent = document.getElementById('edit-id').value ? 'Edit Object' : 'Create New Object';
-        document.getElementById('form-error').classList.add('hidden');
+    async function checkAuthStatus() {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userStatus = document.getElementById('user-status');
+      const newObjectBtn = document.getElementById('new-object-btn');
+      if (user) {
+        userStatus.textContent = `Logged in as ${user.email} (Logout)`;
+        userStatus.onclick = () => supabase.auth.signOut().then(() => location.reload());
+        newObjectBtn.disabled = false;
+      } else {
+        userStatus.textContent = 'Not logged in';
+        newObjectBtn.disabled = true;
       }
     }
-  }
 
-  async function renderObjects() {
-    const filterName = document.getElementById('filter-name')?.value.toLowerCase() || '';
-    const filterLocation = document.getElementById('filter-location')?.value || '';
-    const table = document.getElementById('object-table');
-    if (!table) return;
-    table.innerHTML = '<tr><td colspan="7">Loading...</td></tr>';
-
-    try {
-      const response = await axios.get(`${BASE_URL}/api/objects`);
-      const objects = response.data || [];
-      table.innerHTML = '';
-      objects.forEach((obj) => {
-        if (obj.name.toLowerCase().includes(filterName) && (!filterLocation || obj.location === filterLocation)) {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td><a href="${BASE_URL}/object/${obj.id}">${obj.name}</a></td>
-            <td>${obj.length}</td>
-            <td>${obj.width}</td>
-            <td>${obj.depth}</td>
-            <td>${obj.surface}</td>
-            <td>${obj.location}</td>
-            <td>
-              <button class="action-btn">Edit</button>
-              <button class="action-btn">Delete</button>
-              <button class="action-btn">QR</button>
-            </td>
-          `;
-          table.appendChild(row);
-        }
+    function setupEventListeners() {
+      console.log('Setting listeners');
+      document.querySelectorAll('nav button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const page = btn.id === 'new-object-btn' ? 'new-or-edit-object' : btn.textContent.toLowerCase();
+          showPage(page);
+          console.log(`Nav to ${page}`);
+        });
       });
-      setupEventListeners(); // Reattach after rendering
-    } catch (error) {
-      console.error('Error fetching objects:', error);
-      table.innerHTML = '<tr><td colspan="7">Error loading objects.</td></tr>';
-    }
-  }
 
-  async function editObject(id) {
-    try {
-      const response = await axios.get(`${BASE_URL}/api/objects/${id}`);
-      const obj = response.data;
-      document.getElementById('name').value = obj.name;
-      document.getElementById('length').value = obj.length;
-      document.getElementById('width').value = obj.width;
-      document.getElementById('depth').value = obj.depth;
-      document.getElementById('surface').value = obj.surface;
-      document.getElementById('location').value = obj.location;
-      document.getElementById('edit-id').value = id;
-      showPage('new-or-edit-object');
-    } catch (error) {
-      console.error('Error fetching object:', error);
-    }
-  }
+      const form = document.getElementById('object-form');
+      if (form) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          console.log('Form submit');
+          const id = document.getElementById('edit-id').value;
+          const obj = {
+            name: document.getElementById('name').value,
+            length: parseFloat(document.getElementById('length').value),
+            width: parseFloat(document.getElementById('width').value),
+            depth: parseFloat(document.getElementById('depth').value),
+            surface: document.getElementById('surface').value,
+            location: document.getElementById('location').value
+          };
+          try {
+            if (id) await axios.put(`${BASE_URL}/api/objects/${id}`, obj);
+            else await axios.post(`${BASE_URL}/api/objects`, obj);
+            form.reset();
+            document.getElementById('edit-id').value = '';
+            showPage('storage');
+          } catch (error) {
+            console.error('Save error:', error);
+          }
+        });
+      }
 
-  async function deleteObject(id) {
-    if (confirm('Are you sure?')) {
+      document.querySelectorAll('#object-table .action-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const id = e.target.closest('tr').querySelector('a')?.href.split('/').pop();
+          console.log(`Action ${e.target.textContent} on ${id}`);
+          if (id) {
+            if (e.target.textContent === 'Edit') editObject(id);
+            else if (e.target.textContent === 'Delete') deleteObject(id);
+            else if (e.target.textContent === 'QR') showQRCode(id);
+          }
+        });
+      });
+
+      document.querySelectorAll('#qr-modal button').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (btn.textContent === 'Close') closeQRModal();
+          else if (btn.textContent === 'Download QR as PNG') downloadQRCode();
+          else if (btn.textContent === 'Download QR as PDF') downloadQRCodeAsPDF();
+        });
+      });
+    }
+
+    function showPage(page) {
+      document.querySelectorAll('div[id]').forEach(el => el.classList.add('hidden'));
+      document.getElementById(page)?.classList.remove('hidden');
+    }
+
+    async function renderObjects() {
+      const table = document.getElementById('object-table');
+      table.innerHTML = '<tr><td>Loading...</td></tr>';
       try {
-        await axios.delete(`${BASE_URL}/api/objects/${id}`);
-        renderObjects();
+        const response = await axios.get(`${BASE_URL}/api/objects`);
+        table.innerHTML = response.data.map(obj => `
+          <tr><td><a href="${BASE_URL}/object/${obj.id}">${obj.name}</a></td><td>${obj.length}</td><td>${obj.width}</td><td>${obj.depth}</td><td>${obj.surface}</td><td>${obj.location}</td><td><button class="action-btn">Edit</button><button class="action-btn">Delete</button><button class="action-btn">QR</button></td></tr>
+        `).join('');
+        setupEventListeners();
       } catch (error) {
-        console.error('Error deleting:', error);
+        console.error('Render error:', error);
+        table.innerHTML = '<tr><td>Error loading objects.</td></tr>';
       }
     }
-  }
 
-  async function showQRCode(id) {
-    try {
-      const qrContent = `${BASE_URL}/object/${id}`;
-      document.getElementById('qr-modal').classList.remove('hidden');
-      const qrDiv = document.getElementById('qrcode');
-      qrDiv.innerHTML = '';
-      new QRCode(qrDiv, { text: qrContent, width: 200, height: 200 });
-    } catch (error) {
-      console.error('Error showing QR:', error);
+    async function editObject(id) {
+      try {
+        const response = await axios.get(`${BASE_URL}/api/objects/${id}`);
+        const obj = response.data;
+        document.getElementById('name').value = obj.name;
+        document.getElementById('length').value = obj.length;
+        document.getElementById('width').value = obj.width;
+        document.getElementById('depth').value = obj.depth;
+        document.getElementById('surface').value = obj.surface;
+        document.getElementById('location').value = obj.location;
+        document.getElementById('edit-id').value = id;
+        showPage('new-or-edit-object');
+      } catch (error) {
+        console.error('Edit error:', error);
+      }
     }
-  }
 
-  function closeQRModal() {
-    document.getElementById('qr-modal').classList.add('hidden');
-  }
+    async function deleteObject(id) {
+      if (confirm('Are you sure?')) {
+        try {
+          await axios.delete(`${BASE_URL}/api/objects/${id}`);
+          renderObjects();
+        } catch (error) {
+          console.error('Delete error:', error);
+        }
+      }
+    }
 
-  function downloadQRCode() {
-    const tempQR = document.querySelector('#qrcode canvas');
-    const link = document.createElement('a');
-    link.href = tempQR.toDataURL();
-    link.download = 'object_qr.png';
-    link.click();
-  }
+    async function showQRCode(id) {
+      try {
+        const qrContent = `${BASE_URL}/object/${id}`;
+        document.getElementById('qr-modal').classList.remove('hidden');
+        new QRCode(document.getElementById('qrcode'), { text: qrContent, width: 200, height: 200 });
+      } catch (error) {
+        console.error('QR error:', error);
+      }
+    }
 
-  function downloadQRCodeAsPDF() {
-    const { jsPDF } = window.jspdf;
-    const tempQR = document.querySelector('#qrcode canvas');
-    const qrDataURL = tempQR.toDataURL();
-    const pdf = new jsPDF();
-    pdf.addImage(qrDataURL, 'PNG', 10, 10, 50, 50);
-    pdf.save('object_qr.pdf');
-  }
-</script>
+    function closeQRModal() {
+      document.getElementById('qr-modal').classList.add('hidden');
+    }
 
+    function downloadQRCode() {
+      const canvas = document.querySelector('#qrcode canvas');
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL();
+      link.download = 'object_qr.png';
+      link.click();
+    }
+
+    function downloadQRCodeAsPDF() {
+      const { jsPDF } = window.jspdf;
+      const canvas = document.querySelector('#qrcode canvas');
+      const pdf = new jsPDF();
+      pdf.addImage(canvas.toDataURL(), 'PNG', 10, 10, 50, 50);
+      pdf.save('object_qr.pdf');
+    }
+  </script>
 </body>
 </html>

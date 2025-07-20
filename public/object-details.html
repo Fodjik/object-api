@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Object Details</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Object Details</h2>
+  <div id="object-details"></div>
+  <p id="error" class="error hidden"></p>
+  <button onclick="window.location.href='/'">Back to Home</button>
+
+  <script>
+    console.log('Object details page loaded');
+    async function loadObjectDetails() {
+      const id = window.location.pathname.split('/').pop();
+      console.log('Loading object with ID:', id);
+      const detailsDiv = document.getElementById('object-details');
+      const errorElement = document.getElementById('error');
+
+      try {
+        const response = await axios.get(`/api/objects/${id}`);
+        const obj = response.data;
+        detailsDiv.innerHTML = `
+          <p><strong>Name:</strong> ${obj.name}</p>
+          <p><strong>Length:</strong> ${obj.length} cm</p>
+          <p><strong>Width:</strong> ${obj.width} cm</p>
+          <p><strong>Depth:</strong> ${obj.depth} cm</p>
+          <p><strong>Surface:</strong> ${obj.surface}</p>
+          <p><strong>Location:</strong> ${obj.location}</p>
+        `;
+      } catch (error) {
+        console.error('Error fetching object:', error);
+        errorElement.textContent = 'Error: ' + (error.response?.data?.error || error.message);
+        errorElement.classList.remove('hidden');
+      }
+    }
+
+    loadObjectDetails();
+  </script>
+</body>
+</html>

@@ -99,8 +99,8 @@
 
   <script>
     console.log('Frontend loaded');
-    // Configurable base URL for QR codes (set to your IP or ngrok URL)
-    const BASE_URL = window.location.origin; // Change to 'http://86.50.39.57:3000' or ngrok URL if needed
+    // Set BASE_URL to your IP or ngrok URL
+    const BASE_URL = 'http://86.50.39.57:3000'; // Replace with ngrok HTTPS URL (e.g., 'https://abc123.ngrok.io') after setup
 
     function showPage(page) {
       console.log('Showing page:', page);
@@ -290,7 +290,8 @@
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         video.srcObject = stream;
         video.play();
-        console.log('Camera stream started');
+        console.log('Camera stream started successfully');
+        resultElement.textContent = 'Camera active, scanning for QR code...';
 
         const ctx = canvas.getContext('2d');
 
@@ -302,23 +303,19 @@
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, imageData.width, imageData.height);
           if (code) {
-            try {
-              const url = code.data;
-              console.log('Scanned QR code URL:', url);
-              if (url.match(/\/object\/\d+$/)) {
-                resultElement.textContent = 'Valid QR code detected, redirecting...';
-                console.log('Redirecting to:', url);
-                window.location.href = url;
-              } else {
-                resultElement.textContent = 'Invalid QR code URL';
-                console.log('Invalid QR code URL:', url);
-              }
-            } catch (e) {
-              resultElement.textContent = 'Invalid QR code data';
-              console.error('Error parsing QR code:', e);
+            const url = code.data;
+            console.log('Scanned QR code URL:', url);
+            resultElement.textContent = `Detected QR code: ${url}`;
+            if (url.match(/\/object\/\d+$/)) {
+              resultElement.textContent = 'Valid QR code detected, redirecting...';
+              console.log('Redirecting to:', url);
+              window.location.href = url;
+            } else {
+              resultElement.textContent = 'Invalid QR code URL';
+              console.log('Invalid QR code URL:', url);
             }
           } else {
-            resultElement.textContent = 'Scanning...';
+            resultElement.textContent = 'Scanning... No QR code detected';
           }
           requestAnimationFrame(tick);
         }

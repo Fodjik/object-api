@@ -19,8 +19,8 @@
   </form>
   <script>
     const supabase = (await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')).createClient(
-      'https://uhqwehrlhoaeqhmsazpb.supabase.co', 
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE' 
+      'https://uhqwehrlhoaeqhmsazpb.supabase.co', // Replace with your Supabase URL
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE' // Replace with your Supabase anon key
     );
 
     document.getElementById('register-form').addEventListener('submit', async (e) => {

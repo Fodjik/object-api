@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    .action-btn { margin-right: 5px; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h2>Admin Panel</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Approved</th>
+        <th>Admin</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="users-table"></tbody>
+  </table>
+  <p id="admin-error" class="error hidden"></p>
+  <script>
+    const BASE_URL = 'https://object-api-j9uw.onrender.com';
+    let supabase;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      supabase = (await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')).createClient(
+        'https://uhqwehrlhoaeqhmsazpb.supabase.co',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE'
+      );
+      renderUsers();
+    });
+
+    async function renderUsers() {
+      const table = document.getElementById('users-table');
+      table.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+
+      try {
+        const response = await axios.get(`${BASE_URL}/api/users`);
+        const users = response.data;
+        table.innerHTML = '';
+        users.forEach((user) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${user.email}</td>
+            <td>${user.is_approved ? 'Yes' : 'No'}</td>
+            <td>${user.is_admin ? 'Yes' : 'No'}</td>
+            <td>
+              <button class="action-btn" onclick="approveUser('${user.id}')">${user.is_approved ? 'Approved' : 'Approve'}</button>
+              <button class="action-btn" onclick="makeAdmin('${user.id}')">${user.is_admin ? 'Admin' : 'Make Admin'}</button>
+              <button class="action-btn" onclick="deleteUser('${user.id}')">Delete</button>
+            </td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        document.getElementById('admin-error').textContent = 'Error loading users. Check console.';
+        document.getElementById('admin-error').classList.remove('hidden');
+      }
+    }
+
+    async function approveUser(id) {
+      try {
+        await axios.post(`${BASE_URL}/api/users/approve/${id}`);
+        renderUsers();
+      } catch (error) {
+        console.error('Error approving user:', error);
+      }
+    }
+
+    async function makeAdmin(id) {
+      try {
+        await axios.post(`${BASE_URL}/api/users/make-admin/${id}`);
+        renderUsers();
+      } catch (error) {
+        console.error('Error making user admin:', error);
+      }
+    }
+
+    async function deleteUser(id) {
+      if (confirm('Are you sure you want to delete this user?')) {
+        try {
+          await axios.delete(`${BASE_URL}/api/users/${id}`);
+          renderUsers();
+        } catch (error) {
+          console.error('Error deleting user:', error);
+        }
+      }
+    }
+  </script>
+</body>
+</html>

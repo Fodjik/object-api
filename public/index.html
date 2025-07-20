@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Object Storage App</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
@@ -19,18 +19,18 @@
     .action-btn { margin-right: 5px; cursor: pointer; }
     #qr-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; }
     .error { color: red; }
+    #debug { margin-top: 20px; }
   </style>
 </head>
 <body>
   <nav>
     <button id="new-object-btn">New Object</button>
-    <button>Storage</button>
-    <button>Login</button>
-    <button>Register</button>
+    <button id="storage-btn">Storage</button>
+    <button id="login-btn">Login</button>
+    <button id="register-btn">Register</button>
     <span id="user-status"></span>
   </nav>
 
-  <!-- New/Edit Object Page -->
   <div id="new-or-edit-object" class="hidden">
     <h2 id="form-title">Create New Object</h2>
     <form id="object-form">
@@ -52,7 +52,6 @@
     </form>
   </div>
 
-  <!-- Storage Page -->
   <div id="storage" class="hidden">
     <h2>Storage</h2>
     <label>Filter by name: <input type="text" id="filter-name" /></label>
@@ -80,52 +79,65 @@
     </table>
   </div>
 
-  <!-- QR Code Modal -->
   <div id="qr-modal" class="hidden">
     <h3>QR Code</h3>
     <div id="qrcode"></div>
-    <button>Download QR as PNG</button>
-    <button>Download QR as PDF</button>
-    <button>Close</button>
+    <button id="download-png-btn">Download QR as PNG</button>
+    <button id="download-pdf-btn">Download QR as PDF</button>
+    <button id="close-modal-btn">Close</button>
   </div>
+
+  <div id="debug"></div>
 
   <script>
     console.log('Script loaded');
     const BASE_URL = 'https://object-api-j9uw.onrender.com';
+    const debug = document.getElementById('debug');
+
+    function log(message) {
+      console.log(message);
+      debug.innerHTML += `<p>${message}</p>`;
+    }
 
     // Initialize Supabase
     const supabase = createClient('https://uhqwehrlhoaeqhmsazpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE');
-    if (!supabase) console.error('Supabase initialization failed');
+    if (!supabase) log('Supabase initialization failed');
 
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('DOM loaded');
-      checkAuthStatus();
+      log('DOM loaded');
       setupEventListeners();
+      checkAuthStatus();
       renderObjects();
     });
 
     async function checkAuthStatus() {
-      const { data: { user } } = await supabase.auth.getUser();
-      const userStatus = document.getElementById('user-status');
-      const newObjectBtn = document.getElementById('new-object-btn');
-      if (user) {
-        userStatus.textContent = `Logged in as ${user.email} (Logout)`;
-        userStatus.onclick = () => supabase.auth.signOut().then(() => location.reload());
-        newObjectBtn.disabled = false;
-      } else {
-        userStatus.textContent = 'Not logged in';
-        newObjectBtn.disabled = true;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const userStatus = document.getElementById('user-status');
+        const newObjectBtn = document.getElementById('new-object-btn');
+        if (user) {
+          log(`Logged in as ${user.email}`);
+          userStatus.textContent = `Logged in as ${user.email} (Logout)`;
+          userStatus.onclick = () => supabase.auth.signOut().then(() => location.reload());
+          newObjectBtn.disabled = false;
+        } else {
+          log('Not logged in');
+          userStatus.textContent = 'Not logged in';
+          newObjectBtn.disabled = true;
+        }
+      } catch (error) {
+        log(`Auth error: ${error.message}`);
       }
     }
 
     function setupEventListeners() {
-      console.log('Setting listeners');
+      log('Setting listeners');
       document.querySelectorAll('nav button').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
-          const page = btn.id === 'new-object-btn' ? 'new-or-edit-object' : btn.textContent.toLowerCase();
+          const page = btn.id === 'new-object-btn' ? 'new-or-edit-object' : btn.id.replace('-btn', '');
           showPage(page);
-          console.log(`Nav to ${page}`);
+          log(`Nav to ${page}`);
         });
       });
 
@@ -133,13 +145,13 @@
       if (form) {
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
-          console.log('Form submit');
+          log('Form submit');
           const id = document.getElementById('edit-id').value;
           const obj = {
             name: document.getElementById('name').value,
-            length: parseFloat(document.getElementById('length').value),
-            width: parseFloat(document.getElementById('width').value),
-            depth: parseFloat(document.getElementById('depth').value),
+            length: parseFloat(document.getElementById('length').value) || 0,
+            width: parseFloat(document.getElementById('width').value) || 0,
+            depth: parseFloat(document.getElementById('depth').value) || 0,
             surface: document.getElementById('surface').value,
             location: document.getElementById('location').value
           };
@@ -149,8 +161,9 @@
             form.reset();
             document.getElementById('edit-id').value = '';
             showPage('storage');
+            log('Save success');
           } catch (error) {
-            console.error('Save error:', error);
+            log(`Save error: ${error.response?.data?.error || error.message}`);
           }
         });
       }
@@ -159,7 +172,7 @@
         btn.addEventListener('click', (e) => {
           e.preventDefault();
           const id = e.target.closest('tr').querySelector('a')?.href.split('/').pop();
-          console.log(`Action ${e.target.textContent} on ${id}`);
+          log(`Action ${e.target.textContent} on ${id}`);
           if (id) {
             if (e.target.textContent === 'Edit') editObject(id);
             else if (e.target.textContent === 'Delete') deleteObject(id);
@@ -168,19 +181,18 @@
         });
       });
 
-      document.querySelectorAll('#qr-modal button').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          if (btn.textContent === 'Close') closeQRModal();
-          else if (btn.textContent === 'Download QR as PNG') downloadQRCode();
-          else if (btn.textContent === 'Download QR as PDF') downloadQRCodeAsPDF();
-        });
-      });
+      document.getElementById('download-png-btn')?.addEventListener('click', downloadQRCode);
+      document.getElementById('download-pdf-btn')?.addEventListener('click', downloadQRCodeAsPDF);
+      document.getElementById('close-modal-btn')?.addEventListener('click', closeQRModal);
     }
 
     function showPage(page) {
       document.querySelectorAll('div[id]').forEach(el => el.classList.add('hidden'));
-      document.getElementById(page)?.classList.remove('hidden');
+      const target = document.getElementById(page);
+      if (target) target.classList.remove('hidden');
+      if (page === 'new-or-edit-object') {
+        document.getElementById('form-title').textContent = document.getElementById('edit-id').value ? 'Edit Object' : 'Create New Object';
+      }
     }
 
     async function renderObjects() {
@@ -188,12 +200,13 @@
       table.innerHTML = '<tr><td>Loading...</td></tr>';
       try {
         const response = await axios.get(`${BASE_URL}/api/objects`);
+        log(`Fetched ${response.data.length} objects`);
         table.innerHTML = response.data.map(obj => `
           <tr><td><a href="${BASE_URL}/object/${obj.id}">${obj.name}</a></td><td>${obj.length}</td><td>${obj.width}</td><td>${obj.depth}</td><td>${obj.surface}</td><td>${obj.location}</td><td><button class="action-btn">Edit</button><button class="action-btn">Delete</button><button class="action-btn">QR</button></td></tr>
         `).join('');
         setupEventListeners();
       } catch (error) {
-        console.error('Render error:', error);
+        log(`Render error: ${error.response?.status} ${error.message}`);
         table.innerHTML = '<tr><td>Error loading objects.</td></tr>';
       }
     }
@@ -210,8 +223,9 @@
         document.getElementById('location').value = obj.location;
         document.getElementById('edit-id').value = id;
         showPage('new-or-edit-object');
+        log(`Editing ${id}`);
       } catch (error) {
-        console.error('Edit error:', error);
+        log(`Edit error: ${error.message}`);
       }
     }
 
@@ -220,8 +234,9 @@
         try {
           await axios.delete(`${BASE_URL}/api/objects/${id}`);
           renderObjects();
+          log(`Deleted ${id}`);
         } catch (error) {
-          console.error('Delete error:', error);
+          log(`Delete error: ${error.message}`);
         }
       }
     }
@@ -231,13 +246,15 @@
         const qrContent = `${BASE_URL}/object/${id}`;
         document.getElementById('qr-modal').classList.remove('hidden');
         new QRCode(document.getElementById('qrcode'), { text: qrContent, width: 200, height: 200 });
+        log(`Showing QR for ${id}`);
       } catch (error) {
-        console.error('QR error:', error);
+        log(`QR error: ${error.message}`);
       }
     }
 
     function closeQRModal() {
       document.getElementById('qr-modal').classList.add('hidden');
+      log('Modal closed');
     }
 
     function downloadQRCode() {
@@ -246,6 +263,7 @@
       link.href = canvas.toDataURL();
       link.download = 'object_qr.png';
       link.click();
+      log('Downloaded PNG');
     }
 
     function downloadQRCodeAsPDF() {
@@ -254,6 +272,7 @@
       const pdf = new jsPDF();
       pdf.addImage(canvas.toDataURL(), 'PNG', 10, 10, 50, 50);
       pdf.save('object_qr.pdf');
+      log('Downloaded PDF');
     }
   </script>
 </body>

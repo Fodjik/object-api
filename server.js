@@ -113,6 +113,18 @@ app.delete('/api/objects/:id', async (req, res) => {
   }
 });
 
+app.get('/api/objects', async (req, res) => {
+  console.log('GET /api/objects');
+  try {
+    const { data, error } = await supabase.from('objects').select('*');
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching objects:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve frontend routes
 app.get('/object/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'object-details.html'));

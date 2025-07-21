@@ -5,39 +5,55 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .error { color: red; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #f9f9f9;
+    }
+    .container {
+      max-width: 20rem;
+      margin: 2rem auto;
+      padding: 1rem;
+      background-color: #fff;
+      border: 1px solid #ddd;
+    }
+    label {
+      display: block;
+      margin-top: 0.75rem;
+    }
+    input {
+      padding: 0.5rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      margin-top: 1rem;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #357abd;
+    }
   </style>
 </head>
 <body>
-  <h2>Login</h2>
-  <form id="login-form">
-    <label>Email: <input type="email" id="email" required /></label>
-    <label>Password: <input type="password" id="password" required /></label>
-    <p id="login-error" class="error hidden"></p>
-    <button type="submit">Login</button>
-  </form>
+  <div class="container">
+    <h2>Login</h2>
+    <button onclick="login()">Login with Supabase</button>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const supabase = (await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')).createClient(
-      'https://uhqwehrlhoaeqhmsazpb.supabase.co', 
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE' 
-    );
-
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const errorElement = document.getElementById('login-error');
-
-      try {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        window.location.href = '/';
-      } catch (error) {
-        errorElement.textContent = 'Login failed: ' + error.message;
-        errorElement.classList.remove('hidden');
-      }
-    });
+    const supabase = createClient('https://uhqwehrlhoaeqhmsazpb.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE');
+    async function login() {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      if (error) console.error('Login error:', error);
+    }
   </script>
 </body>
 </html>

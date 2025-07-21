@@ -9,17 +9,113 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    nav { margin-bottom: 20px; }
-    nav button { margin-right: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    nav {
+      margin-bottom: 1.5rem;
+      background-color: #fff;
+      padding: 0.5rem;
+      border-bottom: 1px solid #ddd;
+    }
+    nav button {
+      padding: 0.5rem 1rem;
+      margin-right: 0.5rem;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    nav button:hover {
+      background-color: #357abd;
+    }
     .hidden { display: none; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    label { display: block; margin-top: 10px; }
-    .action-btn { margin-right: 5px; cursor: pointer; }
-    #qr-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 1px solid #ccc; }
-    #scan-video { width: 100%; max-width: 300px; }
-    .error { color: red; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      background-color: #fff;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 0.75rem;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th {
+      background-color: #f1f1f1;
+    }
+    label {
+      display: block;
+      margin-top: 0.75rem;
+      font-size: 0.95rem;
+    }
+    input, select {
+      padding: 0.5rem;
+      font-size: 0.95rem;
+      width: 100%;
+      max-width: 20rem;
+      box-sizing: border-box;
+    }
+    .action-btn {
+      padding: 0.3rem 0.6rem;
+      margin-right: 0.3rem;
+      background-color: #5cb85c;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .action-btn:hover {
+      background-color: #4cae4c;
+    }
+    #qr-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      max-width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    #scan-video {
+      width: 100%;
+      max-width: 300px;
+    }
+    .error {
+      color: red;
+      margin-top: 0.5rem;
+    }
+    /* Responsive Design */
+    @media (max-width: 600px) {
+      nav button {
+        display: block;
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
+      table {
+        font-size: 0.8rem;
+      }
+      th, td {
+        padding: 0.5rem;
+      }
+      input, select {
+        max-width: 100%;
+      }
+      #qr-modal {
+        width: 85%;
+        padding: 0.5rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -99,7 +195,6 @@
 
   <script>
     console.log('Frontend loaded');
-    // Set BASE_URL to your Render URL
     const BASE_URL = 'https://object-api-j9uw.onrender.com';
 
     function showPage(page) {

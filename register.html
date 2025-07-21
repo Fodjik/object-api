@@ -5,41 +5,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    .error { color: red; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #f9f9f9;
+    }
+    .container {
+      max-width: 20rem;
+      margin: 2rem auto;
+      padding: 1rem;
+      background-color: #fff;
+      border: 1px solid #ddd;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      margin-top: 1rem;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #357abd;
+    }
   </style>
 </head>
 <body>
-  <h2>Register</h2>
-  <form id="register-form">
-    <label>Email: <input type="email" id="email" required /></label>
-    <label>Password: <input type="password" id="password" required /></label>
-    <p id="register-error" class="error hidden"></p>
-    <button type="submit">Register</button>
-  </form>
-  <script>
-    const supabase = (await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2')).createClient(
-      'https://uhqwehrlhoaeqhmsazpb.supabase.co', // Replace with your Supabase URL
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVocXdlaHJsaG9hZXFobXNhenBiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NzkzNDAsImV4cCI6MjA2ODU1NTM0MH0.M442gwAFFKmTaASN0Wv0XhWxKS4o5h-FStWLEz3dZpE' // Replace with your Supabase anon key
-    );
-
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const errorElement = document.getElementById('register-error');
-
-      try {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        await supabase.from('users').insert({ id: data.user.id, email });
-        errorElement.textContent = 'Registration successful. Awaiting admin approval.';
-        errorElement.classList.remove('hidden');
-      } catch (error) {
-        errorElement.textContent = 'Registration failed: ' + error.message;
-        errorElement.classList.remove('hidden');
-      }
-    });
-  </script>
+  <div class="container">
+    <h2>Register</h2>
+    <p>Registration is handled via login. Please use the login page.</p>
+    <button onclick="window.location.href='/login'">Go to Login</button>
+  </div>
 </body>
 </html>

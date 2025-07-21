@@ -15,6 +15,14 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Middleware to check authentication
+const requireAuth = async (req, res, next) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+  req.user = user;
+  next();
+};
+
 // API routes
 app.get('/api/objects', async (req, res) => {
   console.log('GET /api/objects');
@@ -44,7 +52,7 @@ app.get('/api/objects/:id', async (req, res) => {
   }
 });
 
-app.post('/api/objects', async (req, res) => {
+app.post('/api/objects', requireAuth, async (req, res) => {
   console.log('POST /api/objects', req.body);
   const { name, length, width, depth, surface, location } = req.body;
   if (!name || !length || !width || !depth || !surface || !location) {
@@ -68,7 +76,7 @@ app.post('/api/objects', async (req, res) => {
   }
 });
 
-app.put('/api/objects/:id', async (req, res) => {
+app.put('/api/objects/:id', requireAuth, async (req, res) => {
   console.log(`PUT /api/objects/${req.params.id}`, req.body);
   const { name, length, width, depth, surface, location } = req.body;
   if (!name || !length || !width || !depth || !surface || !location) {
@@ -96,7 +104,7 @@ app.put('/api/objects/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/objects/:id', async (req, res) => {
+app.delete('/api/objects/:id', requireAuth, async (req, res) => {
   console.log(`DELETE /api/objects/${req.params.id}`);
   try {
     const { data, error } = await supabase.from('objects').delete().eq('id', req.params.id);
@@ -115,6 +123,14 @@ app.delete('/api/objects/:id', async (req, res) => {
 // Serve frontend routes
 app.get('/object/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'object-details.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'register.html'));
 });
 
 app.get('*', (req, res) => {

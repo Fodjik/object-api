@@ -50,7 +50,11 @@
       'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
     );
     const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-      auth: { detectSessionInUrl: true, flowType: 'pkce' },
+      auth: {
+        detectSessionInUrl: true,
+        flowType: 'implicit',
+        persistSession: true,
+      },
     });
 
     const {

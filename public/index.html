@@ -571,20 +571,13 @@
         supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
           auth: {
             detectSessionInUrl: true,
-            flowType: 'pkce',
+            flowType: 'implicit',
+            persistSession: true,
           },
         });
 
-        if (window.location.search.includes('code=')) {
-          const { error: exErr } = await supabase.auth.exchangeCodeForSession(
-            window.location.href
-          );
-          if (exErr) {
-            console.error(exErr);
-            window.location.href = '/login';
-            return;
-          }
-          window.history.replaceState({}, '', '/');
+        if (window.location.hash.includes('access_token')) {
+          await new Promise((r) => setTimeout(r, 150));
         }
 
         const { data: { session } } = await supabase.auth.getSession();

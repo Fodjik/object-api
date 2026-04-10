@@ -51,21 +51,10 @@
     const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
       auth: {
         detectSessionInUrl: true,
-        flowType: 'pkce',
+        flowType: 'implicit',
+        persistSession: true,
       },
     });
-
-    const href = window.location.href;
-    if (href.includes('code=')) {
-      const { error } = await supabase.auth.exchangeCodeForSession(href);
-      if (error) {
-        errEl.textContent = error.message;
-        errEl.classList.remove('hidden');
-      } else {
-        window.history.replaceState({}, '', '/login');
-        window.location.replace('/');
-      }
-    }
 
     const {
       data: { session },
@@ -107,3 +96,4 @@
   </script>
 </body>
 </html>
+

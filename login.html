@@ -10,9 +10,19 @@
   <div class="shell">
     <div class="card card-pad center-card">
       <h1 class="page-title">Object Storage</h1>
-      <p class="page-sub">Sign in with the Google account linked to this project.</p>
+      <p class="page-sub">Sign in with Google, or use a one-time link sent to your email.</p>
       <button type="button" class="btn btn-primary" id="btn-google" style="width:100%;margin-top:0.5rem">Continue with Google</button>
       <p id="err" class="error hidden"></p>
+
+      <div style="margin-top:1.35rem;padding-top:1.25rem;border-top:1px solid var(--border)">
+        <p class="page-sub" style="margin-bottom:0.5rem;font-weight:600;color:var(--text)">Email magic link</p>
+        <label>Email <input type="email" id="ml-email" autocomplete="email" placeholder="you@example.com" /></label>
+        <button type="button" class="btn btn-ghost" id="btn-magic" style="width:100%;margin-top:0.65rem">Send sign-in link</button>
+        <p id="ml-ok" class="hidden" style="margin-top:0.65rem;font-size:0.9rem;color:var(--success)">Check your inbox and click the link to finish signing in.</p>
+      </div>
+
+      <p id="google-hint" class="page-sub" style="margin-top:1.1rem;font-size:0.82rem;line-height:1.45"></p>
+
       <p class="page-sub" style="margin-top:1.25rem;margin-bottom:0">
         <a href="/register">About registration</a>
         · <a href="/">Home</a>
@@ -28,6 +38,12 @@
       throw new Error('config');
     }
     const cfg = await cfgRes.json();
+    const callbackUrl = `${cfg.supabaseUrl.replace(/\/$/, '')}/auth/v1/callback`;
+    document.getElementById('google-hint').innerHTML =
+      '<strong>Google not working?</strong> In Supabase open <strong>Authentication → Providers → Google</strong>, enable it, and paste Client ID and Secret from Google Cloud Console. In Google, set redirect URI to <code style="font-size:0.78rem;word-break:break-all">' +
+      callbackUrl +
+      '</code>';
+
     const { createClient } = await import(
       'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
     );
@@ -37,6 +53,21 @@
         flowType: 'pkce',
       },
     });
+
+    function showOAuthReturnErrors() {
+      const q = new URLSearchParams(window.location.search);
+      let msg = q.get('error_description') || q.get('error');
+      if (!msg && window.location.hash) {
+        const hp = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        msg = hp.get('error_description') || hp.get('error');
+      }
+      if (msg) {
+        errEl.textContent = decodeURIComponent(String(msg).replace(/\+/g, ' '));
+        errEl.classList.remove('hidden');
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+    showOAuthReturnErrors();
 
     const {
       data: { session },
@@ -61,6 +92,28 @@
       if (error) {
         errEl.textContent = error.message;
         errEl.classList.remove('hidden');
+      }
+    };
+
+    document.getElementById('btn-magic').onclick = async () => {
+      const email = document.getElementById('ml-email').value.trim();
+      const okEl = document.getElementById('ml-ok');
+      okEl.classList.add('hidden');
+      errEl.classList.add('hidden');
+      if (!email) {
+        errEl.textContent = 'Enter your email address.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/login` },
+      });
+      if (error) {
+        errEl.textContent = error.message;
+        errEl.classList.remove('hidden');
+      } else {
+        okEl.classList.remove('hidden');
       }
     };
   </script>

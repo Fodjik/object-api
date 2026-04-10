@@ -30,24 +30,51 @@
     const { createClient } = await import(
       'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
     );
+
     const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-      auth: { flowType: 'pkce', detectSessionInUrl: true },
+      auth: {
+        flowType: 'implicit',
+        detectSessionInUrl: true,
+        persistSession: true,
+      },
     });
 
-    const href = window.location.href;
-    if (!href.includes('code=')) {
-      msgEl.textContent = '';
-      errEl.textContent = 'Missing sign-in code. Request a new link from the login page.';
-      errEl.classList.remove('hidden');
+    async function waitForSession() {
+      let { data: { session } } = await supabase.auth.getSession();
+      if (session) return session;
+
+      await new Promise((r) => setTimeout(r, 200));
+      ({ data: { session } } = await supabase.auth.getSession());
+      if (session) return session;
+
+      return new Promise((resolve) => {
+        let timeout;
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (_event, sess) => {
+            if (sess) {
+              clearTimeout(timeout);
+              subscription.unsubscribe();
+              resolve(sess);
+            }
+          }
+        );
+        timeout = setTimeout(() => {
+          subscription.unsubscribe();
+          resolve(null);
+        }, 10000);
+      });
+    }
+
+    const session = await waitForSession();
+
+    if (session) {
+      window.history.replaceState({}, '', '/auth/callback');
+      window.location.replace('/');
     } else {
-      const { error } = await supabase.auth.exchangeCodeForSession(href);
-      if (error) {
-        msgEl.textContent = '';
-        errEl.textContent = error.message;
-        errEl.classList.remove('hidden');
-      } else {
-        window.location.replace('/');
-      }
+      msgEl.textContent = '';
+      errEl.innerHTML =
+        'No session from this link. <strong>Request a new sign-in email</strong> after updating the app (magic links now work on any device). If it keeps failing, confirm this URL is listed under Supabase → Authentication → URL configuration → Redirect URLs.';
+      errEl.classList.remove('hidden');
     }
   </script>
 </body>

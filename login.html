@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in</title>
+  <link rel="stylesheet" href="/theme.css" />
+</head>
+<body>
+  <div class="shell">
+    <div class="card card-pad center-card">
+      <h1 class="page-title">Object Storage</h1>
+      <p class="page-sub">Sign in with the Google account linked to this project.</p>
+      <button type="button" class="btn btn-primary" id="btn-google" style="width:100%;margin-top:0.5rem">Continue with Google</button>
+      <p id="err" class="error hidden"></p>
+      <p class="page-sub" style="margin-top:1.25rem;margin-bottom:0">
+        <a href="/register">About registration</a>
+        · <a href="/">Home</a>
+      </p>
+    </div>
+  </div>
+  <script type="module">
+    const errEl = document.getElementById('err');
+    const cfgRes = await fetch('/api/config');
+    if (!cfgRes.ok) {
+      errEl.textContent = 'Cannot load app configuration. Is the server running?';
+      errEl.classList.remove('hidden');
+      throw new Error('config');
+    }
+    const cfg = await cfgRes.json();
+    const { createClient } = await import(
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    );
+    const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+      auth: {
+        detectSessionInUrl: true,
+        flowType: 'pkce',
+      },
+    });
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) {
+      window.location.replace('/');
+    }
+
+    supabase.auth.onAuthStateChange((event, sess) => {
+      if (event === 'SIGNED_IN' && sess) {
+        window.location.replace('/');
+      }
+    });
+
+    document.getElementById('btn-google').onclick = async () => {
+      errEl.classList.add('hidden');
+      const redirectTo = `${window.location.origin}/login`;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      });
+      if (error) {
+        errEl.textContent = error.message;
+        errEl.classList.remove('hidden');
+      }
+    };
+  </script>
+</body>
+</html>

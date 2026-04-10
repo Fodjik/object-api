@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Object Storage App</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+  <div id="pending-gate" class="card card-pad hidden">
+    <h2 class="page-title">Waiting for approval</h2>
+    <p class="page-sub" style="margin-bottom:1rem">Your account is signed in but an administrator has not approved it yet.</p>
+    <button type="button" class="btn btn-danger" onclick="signOut()">Sign out</button>
+  </div>
+
+  <div id="app-main" class="hidden">
+    <nav class="nav-bar" aria-label="Main">
+      <span class="nav-brand">Object Storage</span>
+      <button type="button" class="btn btn-primary" onclick="showPage('new-or-edit-object')">New object</button>
+      <button type="button" class="btn btn-primary" onclick="showPage('storage')">Storage</button>
+      <button type="button" class="btn btn-ghost" onclick="showPage('locations')">Locations</button>
+      <button type="button" class="btn btn-ghost" onclick="showPage('materials')">Materials</button>
+      <button type="button" class="btn btn-ghost" onclick="showPage('scan-qr')">Scan QR</button>
+      <button type="button" id="nav-admin" class="btn btn-ghost hidden" onclick="window.location.href='/admin'">Admin</button>
+      <span class="nav-spacer"></span>
+      <button type="button" class="btn btn-danger" onclick="signOut()">Sign out</button>
+    </nav>
+
+    <div id="new-or-edit-object" class="hidden card card-pad">
+      <h2 class="page-title" id="form-title">Create new object</h2>
+      <p class="page-sub">Add dimensions, surface, material, and storage location.</p>
+      <form id="object-form" class="form-stack">
+        <input type="hidden" id="edit-id" />
+        <label>Name <input type="text" id="name" required /></label>
+        <label>Material
+          <select id="material_id" required></select>
+        </label>
+        <label>Length (cm) <input type="text" id="length" required /></label>
+        <label>Width (cm) <input type="text" id="width" required /></label>
+        <label>Depth (cm) <input type="text" id="depth" required /></label>
+        <label>Surface <input type="text" id="surface" required /></label>
+        <label>Storage location
+          <select id="location_id" required></select>
+        </label>
+        <p id="form-error" class="error hidden"></p>
+        <button type="submit" class="btn btn-success" style="margin-top:1rem">Save object</button>
+      </form>
+    </div>
+
+    <div id="storage" class="hidden card card-pad">
+      <h2 class="page-title">Storage</h2>
+      <p class="page-sub">Filter and manage inventory. Material notes show in the list.</p>
+      <div class="filters">
+        <label>Filter by name <input type="text" id="filter-name" oninput="renderObjects()" /></label>
+        <label>Location
+          <select id="filter-location" onchange="renderObjects()"></select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Material</th>
+              <th>Location</th>
+              <th>L</th>
+              <th>W</th>
+              <th>D</th>
+              <th>Surface</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="object-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="locations" class="hidden card card-pad">
+      <h2 class="page-title">Locations</h2>
+      <p class="page-sub">Names for shelves, rooms, or bins. Used when editing objects and in filters.</p>
+      <label>New location name <input type="text" id="new-location-name" placeholder="e.g. Shelf 3" /></label>
+      <button type="button" class="btn btn-success" style="margin-top:0.75rem" onclick="addLocation()">Add location</button>
+      <p id="locations-error" class="error hidden"></p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="locations-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="materials" class="hidden card card-pad">
+      <h2 class="page-title">Materials</h2>
+      <p class="page-sub">Reusable material types. Name and description appear in the storage overview.</p>
+      <label>Name <input type="text" id="new-material-name" placeholder="e.g. Oak plywood" /></label>
+      <label>Description / notes <textarea id="new-material-desc" placeholder="Thickness, finish, supplier…"></textarea></label>
+      <button type="button" class="btn btn-success" style="margin-top:0.75rem" onclick="addMaterial()">Add material</button>
+      <p id="materials-error" class="error hidden"></p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="materials-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="qr-modal" class="hidden modal">
+      <h3 class="page-title" style="font-size:1.1rem">QR code</h3>
+      <div id="qrcode"></div>
+      <button type="button" class="btn btn-primary" onclick="downloadQRCode()">Download PNG</button>
+      <button type="button" class="btn btn-primary" onclick="downloadQRCodeAsPDF()">Download PDF</button>
+      <button type="button" class="btn btn-ghost" onclick="closeQRModal()">Close</button>
+    </div>
+
+    <div id="scan-qr" class="hidden card card-pad">
+      <h2 class="page-title">Scan QR code</h2>
+      <p class="page-sub">Point the camera at a label generated from this app.</p>
+      <video id="scan-video" autoplay playsinline></video>
+      <canvas id="scan-canvas" style="display: none;"></canvas>
+      <p id="scan-result" class="page-sub" style="margin-top:0.75rem">Scanning…</p>
+      <button type="button" class="btn btn-ghost" onclick="stopScanning()">Stop and back</button>
+    </div>
+  </div>
+  </div>
+
+  <script>
+    const BASE_URL = window.location.origin;
+    let supabase = null;
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+
+    function truncate(s, n) {
+      const t = String(s || '');
+      return t.length <= n ? t : t.slice(0, n) + '…';
+    }
+
+    async function loadConfig() {
+      const r = await fetch('/api/config');
+      if (!r.ok) throw new Error('Config failed');
+      return r.json();
+    }
+
+    async function signOut() {
+      if (supabase) await supabase.auth.signOut();
+      window.location.href = '/login';
+    }
+
+    function setupAxios() {
+      axios.interceptors.request.use(async (config) => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          config.headers.Authorization = `Bearer ${session.access_token}`;
+        }
+        return config;
+      });
+    }
+
+    async function refreshLocationMaterialSelects() {
+      const locSel = document.getElementById('location_id');
+      const matSel = document.getElementById('material_id');
+      const filterLoc = document.getElementById('filter-location');
+      const [locRes, matRes] = await Promise.all([
+        axios.get('/api/locations'),
+        axios.get('/api/materials'),
+      ]);
+      const locs = locRes.data || [];
+      const mats = matRes.data || [];
+
+      const prevL = locSel.value;
+      const prevM = matSel.value;
+      locSel.innerHTML = '<option value="">— Select —</option>';
+      locs.forEach((l) => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.name;
+        locSel.appendChild(o);
+      });
+      if (prevL) locSel.value = prevL;
+
+      matSel.innerHTML = '<option value="">— Select —</option>';
+      mats.forEach((m) => {
+        const o = document.createElement('option');
+        o.value = m.id;
+        o.textContent = m.name;
+        matSel.appendChild(o);
+      });
+      if (prevM) matSel.value = prevM;
+
+      const prevF = filterLoc.value;
+      filterLoc.innerHTML = '<option value="">All locations</option>';
+      locs.forEach((l) => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.name;
+        filterLoc.appendChild(o);
+      });
+      if (prevF) filterLoc.value = prevF;
+    }
+
+    function showPage(page) {
+      document.getElementById('new-or-edit-object').classList.add('hidden');
+      document.getElementById('storage').classList.add('hidden');
+      document.getElementById('locations').classList.add('hidden');
+      document.getElementById('materials').classList.add('hidden');
+      document.getElementById('scan-qr').classList.add('hidden');
+      document.getElementById(page).classList.remove('hidden');
+
+      if (page === 'new-or-edit-object') {
+        const editId = document.getElementById('edit-id').value;
+        document.getElementById('form-title').textContent = editId ? 'Edit object' : 'Create new object';
+        document.getElementById('form-error').classList.add('hidden');
+        refreshLocationMaterialSelects().catch(console.error);
+      } else if (page === 'scan-qr') {
+        startScanning();
+      } else if (page === 'storage') {
+        refreshLocationMaterialSelects().then(renderObjects).catch(console.error);
+      } else if (page === 'locations') {
+        renderLocations();
+      } else if (page === 'materials') {
+        renderMaterialsList();
+      }
+    }
+
+    document.getElementById('object-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const errorElement = document.getElementById('form-error');
+      const id = document.getElementById('edit-id').value;
+      const length = document.getElementById('length').value.replace(',', '.');
+      const width = document.getElementById('width').value.replace(',', '.');
+      const depth = document.getElementById('depth').value.replace(',', '.');
+
+      if (isNaN(parseFloat(length)) || isNaN(parseFloat(width)) || isNaN(parseFloat(depth))) {
+        errorElement.textContent = 'Please enter valid numbers for length, width, and depth.';
+        errorElement.classList.remove('hidden');
+        return;
+      }
+
+      const location_id = document.getElementById('location_id').value;
+      const material_id = document.getElementById('material_id').value;
+      if (!location_id || !material_id) {
+        errorElement.textContent = 'Choose a location and a material (create them under Locations / Materials if needed).';
+        errorElement.classList.remove('hidden');
+        return;
+      }
+
+      const object = {
+        name: document.getElementById('name').value,
+        length: parseFloat(length),
+        width: parseFloat(width),
+        depth: parseFloat(depth),
+        surface: document.getElementById('surface').value,
+        location_id,
+        material_id,
+      };
+
+      try {
+        if (id) {
+          await axios.put(`/api/objects/${id}`, object);
+        } else {
+          await axios.post('/api/objects', object);
+        }
+        e.target.reset();
+        document.getElementById('edit-id').value = '';
+        document.getElementById('form-title').textContent = 'Create new object';
+        errorElement.classList.add('hidden');
+        showPage('storage');
+      } catch (error) {
+        console.error('Error saving object:', error);
+        errorElement.textContent = 'Error saving object: ' + (error.response?.data?.error || error.message);
+        errorElement.classList.remove('hidden');
+      }
+    });
+
+    async function renderObjects() {
+      const filterName = document.getElementById('filter-name').value.toLowerCase();
+      const filterLocation = document.getElementById('filter-location').value;
+      const table = document.getElementById('object-table');
+      table.innerHTML = '<tr><td colspan="8">Loading...</td></tr>';
+
+      try {
+        const response = await axios.get('/api/objects');
+        const objects = response.data;
+        table.innerHTML = '';
+
+        objects.forEach((obj) => {
+          if (!obj.name.toLowerCase().includes(filterName)) return;
+          if (filterLocation && obj.location_id !== filterLocation) return;
+
+          const matTitle = escapeHtml(obj.material_description || '');
+          const matCell = `<strong>${escapeHtml(obj.material_name || '—')}</strong><div class="mat-preview" title="${matTitle}">${escapeHtml(truncate(obj.material_description, 80)) || '—'}</div>`;
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><a href="/object/${obj.id}">${escapeHtml(obj.name)}</a></td>
+            <td>${matCell}</td>
+            <td>${escapeHtml(obj.location_name || '—')}</td>
+            <td>${obj.length}</td>
+            <td>${obj.width}</td>
+            <td>${obj.depth}</td>
+            <td>${escapeHtml(obj.surface)}</td>
+            <td>
+              <button type="button" class="action-btn" onclick="editObject('${obj.id}')">Edit</button>
+              <button type="button" class="action-btn danger" onclick="deleteObject('${obj.id}')">Delete</button>
+              <button type="button" class="action-btn" onclick="showQRCode('${obj.id}')">QR</button>
+            </td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error fetching objects:', error);
+        table.innerHTML = '<tr><td colspan="8">Error loading objects. Check console.</td></tr>';
+      }
+    }
+
+    async function editObject(id) {
+      try {
+        await refreshLocationMaterialSelects();
+        const response = await axios.get(`/api/objects/${id}`);
+        const obj = response.data;
+        document.getElementById('name').value = obj.name;
+        document.getElementById('length').value = obj.length;
+        document.getElementById('width').value = obj.width;
+        document.getElementById('depth').value = obj.depth;
+        document.getElementById('surface').value = obj.surface;
+        document.getElementById('location_id').value = obj.location_id;
+        document.getElementById('material_id').value = obj.material_id;
+        document.getElementById('edit-id').value = id;
+        document.getElementById('form-title').textContent = 'Edit object';
+        document.getElementById('form-error').classList.add('hidden');
+        showPage('new-or-edit-object');
+      } catch (error) {
+        console.error('Error fetching object:', error);
+      }
+    }
+
+    async function deleteObject(id) {
+      if (!confirm('Are you sure you want to delete this object?')) return;
+      try {
+        await axios.delete(`/api/objects/${id}`);
+        renderObjects();
+      } catch (error) {
+        console.error('Error deleting object:', error);
+      }
+    }
+
+    async function renderLocations() {
+      const table = document.getElementById('locations-table');
+      const err = document.getElementById('locations-error');
+      err.classList.add('hidden');
+      table.innerHTML = '<tr><td colspan="2">Loading...</td></tr>';
+      try {
+        const { data } = await axios.get('/api/locations');
+        table.innerHTML = '';
+        (data || []).forEach((l) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${escapeHtml(l.name)}</td>
+            <td><button type="button" class="action-btn danger" onclick="deleteLocation('${l.id}')">Delete</button></td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+        table.innerHTML = '';
+      }
+    }
+
+    async function addLocation() {
+      const input = document.getElementById('new-location-name');
+      const err = document.getElementById('locations-error');
+      err.classList.add('hidden');
+      try {
+        await axios.post('/api/locations', { name: input.value });
+        input.value = '';
+        await renderLocations();
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+      }
+    }
+
+    async function deleteLocation(id) {
+      if (!confirm('Delete this location? Objects using it must be moved first.')) return;
+      try {
+        await axios.delete(`/api/locations/${id}`);
+        await renderLocations();
+      } catch (e) {
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function renderMaterialsList() {
+      const table = document.getElementById('materials-table');
+      const err = document.getElementById('materials-error');
+      err.classList.add('hidden');
+      table.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+      try {
+        const { data } = await axios.get('/api/materials');
+        table.innerHTML = '';
+        (data || []).forEach((m) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${escapeHtml(m.name)}</td>
+            <td>${escapeHtml(truncate(m.description, 120))}</td>
+            <td><button type="button" class="action-btn danger" onclick="deleteMaterial('${m.id}')">Delete</button></td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+        table.innerHTML = '';
+      }
+    }
+
+    async function addMaterial() {
+      const err = document.getElementById('materials-error');
+      err.classList.add('hidden');
+      try {
+        await axios.post('/api/materials', {
+          name: document.getElementById('new-material-name').value,
+          description: document.getElementById('new-material-desc').value,
+        });
+        document.getElementById('new-material-name').value = '';
+        document.getElementById('new-material-desc').value = '';
+        await renderMaterialsList();
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+      }
+    }
+
+    async function deleteMaterial(id) {
+      if (!confirm('Delete this material? Objects using it must be reassigned first.')) return;
+      try {
+        await axios.delete(`/api/materials/${id}`);
+        await renderMaterialsList();
+      } catch (e) {
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function showQRCode(id) {
+      try {
+        const qrContent = `${BASE_URL}/object/${id}`;
+        document.getElementById('qr-modal').classList.remove('hidden');
+        const qrDiv = document.getElementById('qrcode');
+        qrDiv.innerHTML = '';
+        new QRCode(qrDiv, {
+          text: qrContent,
+          width: 200,
+          height: 200,
+        });
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
+    }
+
+    function closeQRModal() {
+      document.getElementById('qr-modal').classList.add('hidden');
+    }
+
+    function downloadQRCode() {
+      const tempQR = document.querySelector('#qrcode canvas');
+      if (!tempQR) return;
+      const link = document.createElement('a');
+      link.href = tempQR.toDataURL();
+      link.download = 'object_qr.png';
+      link.click();
+    }
+
+    function downloadQRCodeAsPDF() {
+      const tempQR = document.querySelector('#qrcode canvas');
+      if (!tempQR) return;
+      const { jsPDF } = window.jspdf;
+      const qrDataURL = tempQR.toDataURL();
+      const pdf = new jsPDF();
+      pdf.addImage(qrDataURL, 'PNG', 10, 10, 50, 50);
+      pdf.save('object_qr.pdf');
+    }
+
+    let video = null;
+    let scanning = false;
+    const uuidPathRe = /\/object\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(\?|$|#)/i;
+
+    async function startScanning() {
+      video = document.getElementById('scan-video');
+      const canvas = document.getElementById('scan-canvas');
+      const resultElement = document.getElementById('scan-result');
+      scanning = true;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
+        video.srcObject = stream;
+        video.play();
+        resultElement.textContent = 'Camera active, scanning for QR code...';
+
+        const ctx = canvas.getContext('2d');
+
+        function tick() {
+          if (!scanning) return;
+          canvas.height = video.videoHeight;
+          canvas.width = video.videoWidth;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code) {
+            const url = code.data;
+            resultElement.textContent = `Detected: ${url}`;
+            if (uuidPathRe.test(url) || url.includes('/object/')) {
+              const m = url.match(/\/object\/([0-9a-f-]{36})/i);
+              if (m) {
+                resultElement.textContent = 'Valid QR — opening…';
+                window.location.href = `/object/${m[1]}`;
+                return;
+              }
+            }
+            resultElement.textContent = 'QR is not an object link for this app';
+          } else {
+            resultElement.textContent = 'Scanning…';
+          }
+          requestAnimationFrame(tick);
+        }
+
+        tick();
+      } catch (err) {
+        console.error('Error accessing camera:', err);
+        resultElement.textContent = 'Error accessing camera: ' + err.message;
+      }
+    }
+
+    function stopScanning() {
+      scanning = false;
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach((track) => track.stop());
+        video.srcObject = null;
+      }
+      showPage('storage');
+    }
+
+    async function boot() {
+      try {
+        const cfg = await loadConfig();
+        const { createClient } = await import(
+          'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+        );
+        supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+          auth: {
+            detectSessionInUrl: true,
+            flowType: 'pkce',
+          },
+        });
+
+        if (window.location.search.includes('code=')) {
+          const { error: exErr } = await supabase.auth.exchangeCodeForSession(
+            window.location.href
+          );
+          if (exErr) {
+            console.error(exErr);
+            window.location.href = '/login';
+            return;
+          }
+          window.history.replaceState({}, '', '/');
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          window.location.href = '/login';
+          return;
+        }
+
+        setupAxios();
+
+        const me = await axios.get('/api/profiles/me');
+        if (!me.data.is_approved) {
+          document.getElementById('pending-gate').classList.remove('hidden');
+          return;
+        }
+
+        document.getElementById('app-main').classList.remove('hidden');
+        if (me.data.is_admin) {
+          document.getElementById('nav-admin').classList.remove('hidden');
+        }
+        showPage('storage');
+      } catch (e) {
+        console.error(e);
+        alert('Failed to start app. Check console and server configuration.');
+      }
+    }
+
+    boot();
+  </script>
+</body>
+</html>

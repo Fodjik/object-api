@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registration</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <script src="/i18n.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <div class="card card-pad center-card">
+      <div style="display:flex;justify-content:flex-end;gap:0.35rem;margin-bottom:0.65rem">
+        <button type="button" class="btn btn-ghost" data-lang-btn="en" id="lang-en" data-i18n="lang_en"></button>
+        <button type="button" class="btn btn-ghost" data-lang-btn="fi" id="lang-fi" data-i18n="lang_fi"></button>
+      </div>
+      <h1 class="page-title" data-i18n="reg_title"></h1>
+      <p class="page-sub" data-i18n-html="reg_sub_html"></p>
+      <button type="button" class="btn btn-primary" style="width:100%;margin-top:0.5rem" onclick="window.location.href='/login'" data-i18n="reg_login"></button>
+      <p class="page-sub" style="margin-top:1rem;margin-bottom:0"><a href="/" data-i18n="reg_home"></a></p>
+    </div>
+  </div>
+  <script>
+    function refreshRegLang() {
+      I18n.apply(document.body);
+      I18n.updateLangButtons();
+      document.title = I18n.t('doc_title_register');
+    }
+    document.getElementById('lang-en').addEventListener('click', () => I18n.setLang('en'));
+    document.getElementById('lang-fi').addEventListener('click', () => I18n.setLang('fi'));
+    window.addEventListener('applangchange', refreshRegLang);
+    refreshRegLang();
+  </script>
+</body>
+</html>

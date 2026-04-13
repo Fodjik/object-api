@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <script src="/i18n.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav-bar" style="margin-bottom:1rem" aria-label="Admin nav">
+      <span class="nav-brand" data-i18n="admin_nav"></span>
+      <a class="btn btn-ghost" href="/" style="text-decoration:none;display:inline-flex" data-i18n="admin_app"></a>
+      <a class="btn btn-ghost" href="/login" style="text-decoration:none;display:inline-flex" data-i18n="admin_login"></a>
+      <span class="nav-spacer"></span>
+      <button type="button" class="btn btn-ghost" data-lang-btn="en" id="lang-en" data-i18n="lang_en"></button>
+      <button type="button" class="btn btn-ghost" data-lang-btn="fi" id="lang-fi" data-i18n="lang_fi"></button>
+    </nav>
+
+    <div class="card card-pad" style="margin-bottom:1rem">
+      <h2 class="page-title" style="font-size:1.1rem" data-i18n="admin_inv_title"></h2>
+      <p class="page-sub" style="margin-bottom:0.35rem" data-i18n="admin_inv_sub"></p>
+      <p id="inv-total" style="font-size:1.35rem;font-weight:700;margin:0">…</p>
+    </div>
+
+    <div class="card card-pad">
+      <h1 class="page-title" data-i18n="admin_users_title"></h1>
+      <p class="page-sub" data-i18n-html="admin_users_sub"></p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th data-i18n="admin_th_email"></th>
+              <th data-i18n="admin_th_approved"></th>
+              <th data-i18n="admin_th_admin"></th>
+              <th data-i18n="admin_th_edit"></th>
+              <th data-i18n="admin_th_actions"></th>
+            </tr>
+          </thead>
+          <tbody id="users-table"></tbody>
+        </table>
+      </div>
+      <p id="admin-error" class="error hidden"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    const table = document.getElementById('users-table');
+    const adminError = document.getElementById('admin-error');
+    const invTotal = document.getElementById('inv-total');
+
+    function refreshAdminStatic() {
+      I18n.apply(document.body);
+      I18n.updateLangButtons();
+      document.title = I18n.t('doc_title_admin');
+    }
+
+    document.getElementById('lang-en').addEventListener('click', () => I18n.setLang('en'));
+    document.getElementById('lang-fi').addEventListener('click', () => I18n.setLang('fi'));
+    window.addEventListener('applangchange', () => {
+      refreshAdminStatic();
+      renderUsers();
+    });
+
+    const cfgRes = await fetch('/api/config');
+    if (!cfgRes.ok) {
+      adminError.textContent = I18n.t('admin_config_err');
+      adminError.classList.remove('hidden');
+      refreshAdminStatic();
+      throw new Error('config');
+    }
+    const cfg = await cfgRes.json();
+    refreshAdminStatic();
+
+    const { createClient } = await import(
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+    );
+    const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+      auth: { detectSessionInUrl: true, flowType: 'pkce' },
+    });
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) {
+      window.location.replace('/login');
+    }
+
+    axios.interceptors.request.use(async (config) => {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      if (s?.access_token) {
+        config.headers.Authorization = `Bearer ${s.access_token}`;
+      }
+      return config;
+    });
+
+    function showErr(msg) {
+      adminError.textContent = msg;
+      adminError.classList.remove('hidden');
+    }
+
+    async function loadInventoryTotal() {
+      try {
+        const { data } = await axios.get('/api/admin/inventory-total');
+        invTotal.textContent =
+          typeof data.total === 'number'
+            ? data.total.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : I18n.t('dash');
+      } catch {
+        invTotal.textContent = I18n.t('dash');
+      }
+    }
+
+    async function renderUsers() {
+      table.innerHTML = `<tr><td colspan="5">${I18n.t('admin_loading')}</td></tr>`;
+      adminError.classList.add('hidden');
+      try {
+        const response = await axios.get('/api/users');
+        const users = response.data;
+        table.innerHTML = '';
+        users.forEach((user) => {
+          const row = document.createElement('tr');
+          const id = user.id;
+          const yes = I18n.t('admin_yes');
+          const no = I18n.t('admin_no');
+          const approveLabel = user.is_approved ? I18n.t('admin_approved') : I18n.t('admin_approve');
+          const adminBtnLabel = user.is_admin ? I18n.t('admin_is_admin') : I18n.t('admin_make_admin');
+          const editBtnLabel = user.can_edit_objects
+            ? I18n.t('admin_revoke_edit')
+            : I18n.t('admin_allow_edit');
+          row.innerHTML = `
+            <td>${escapeHtml(user.email || '')}</td>
+            <td>${user.is_approved ? yes : no}</td>
+            <td>${user.is_admin ? yes : no}</td>
+            <td>${user.can_edit_objects ? yes : no}</td>
+            <td>
+              <button type="button" class="action-btn" data-act="approve" data-id="${id}">${approveLabel}</button>
+              <button type="button" class="action-btn" data-act="admin" data-id="${id}">${adminBtnLabel}</button>
+              <button type="button" class="action-btn" data-act="edit" data-id="${id}" data-can-edit="${user.can_edit_objects ? '1' : '0'}">${editBtnLabel}</button>
+              <button type="button" class="action-btn danger" data-act="del" data-id="${id}">${I18n.t('admin_delete')}</button>
+            </td>
+          `;
+          table.appendChild(row);
+        });
+
+        table.querySelectorAll('button[data-act]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const act = btn.getAttribute('data-act');
+            const uid = btn.getAttribute('data-id');
+            if (act === 'approve') approveUser(uid);
+            else if (act === 'admin') makeAdmin(uid);
+            else if (act === 'edit')
+              toggleEdit(uid, btn.getAttribute('data-can-edit') === '1');
+            else if (act === 'del') deleteUser(uid);
+          });
+        });
+      } catch (error) {
+        console.error(error);
+        const msg =
+          error.response?.data?.error ||
+          error.message ||
+          I18n.t('admin_load_users_fail');
+        showErr(msg);
+        table.innerHTML = '';
+        if (error.response?.status === 403) {
+          showErr(I18n.t('admin_forbidden'));
+        }
+      }
+    }
+
+    async function toggleEdit(id, currentlyCanEdit) {
+      try {
+        await axios.post(`/api/users/can-edit/${id}`, {
+          can_edit: !currentlyCanEdit,
+        });
+        await renderUsers();
+        await loadInventoryTotal();
+      } catch (e) {
+        console.error(e);
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s == null ? '' : String(s);
+      return d.innerHTML;
+    }
+
+    async function approveUser(id) {
+      try {
+        await axios.post(`/api/users/approve/${id}`);
+        await renderUsers();
+      } catch (e) {
+        console.error(e);
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function makeAdmin(id) {
+      try {
+        await axios.post(`/api/users/make-admin/${id}`);
+        await renderUsers();
+      } catch (e) {
+        console.error(e);
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function deleteUser(id) {
+      if (!confirm(I18n.t('admin_confirm_delete'))) return;
+      try {
+        await axios.delete(`/api/users/${id}`);
+        await renderUsers();
+        await loadInventoryTotal();
+      } catch (e) {
+        console.error(e);
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    await loadInventoryTotal();
+    await renderUsers();
+  </script>
+</body>
+</html>

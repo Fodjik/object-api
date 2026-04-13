@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Object Storage</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <script src="/i18n.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+  <div id="pending-gate" class="card card-pad hidden">
+    <div style="display:flex;justify-content:flex-end;gap:0.35rem;margin-bottom:0.65rem">
+      <button type="button" class="btn btn-ghost" data-lang-btn-pending="en" id="lang-en-pending" data-i18n="lang_en"></button>
+      <button type="button" class="btn btn-ghost" data-lang-btn-pending="fi" id="lang-fi-pending" data-i18n="lang_fi"></button>
+    </div>
+    <h2 class="page-title" data-i18n="pending_title"></h2>
+    <p class="page-sub" style="margin-bottom:1rem" data-i18n="pending_sub"></p>
+    <button type="button" class="btn btn-danger" onclick="signOut()" data-i18n="pending_signout"></button>
+  </div>
+
+  <div id="app-main" class="hidden">
+    <div id="readonly-banner" class="readonly-banner hidden" data-i18n-html="readonly_banner_html"></div>
+    <nav class="nav-bar" aria-label="Main">
+      <span class="nav-brand" data-i18n="nav_brand"></span>
+      <button type="button" id="nav-new" class="btn btn-primary" onclick="startNewObject()" data-i18n="nav_new"></button>
+      <button type="button" class="btn btn-primary" onclick="showPage('storage')" data-i18n="nav_storage"></button>
+      <button type="button" id="nav-loc" class="btn btn-ghost" onclick="showPage('locations')" data-i18n="nav_locations"></button>
+      <button type="button" id="nav-mat" class="btn btn-ghost" onclick="showPage('materials')" data-i18n="nav_materials"></button>
+      <button type="button" class="btn btn-ghost" onclick="showPage('scan-qr')" data-i18n="nav_scan"></button>
+      <button type="button" id="nav-admin" class="btn btn-ghost hidden" onclick="window.location.href='/admin'" data-i18n="nav_admin"></button>
+      <span class="nav-spacer"></span>
+      <button type="button" class="btn btn-ghost" data-lang-btn="en" id="lang-en" data-i18n="lang_en"></button>
+      <button type="button" class="btn btn-ghost" data-lang-btn="fi" id="lang-fi" data-i18n="lang_fi"></button>
+      <button type="button" class="btn btn-danger" onclick="signOut()" data-i18n="nav_signout"></button>
+    </nav>
+
+    <div id="new-or-edit-object" class="hidden card card-pad">
+      <h2 class="page-title" id="form-title"></h2>
+      <p class="page-sub" data-i18n="form_sub"></p>
+      <form id="object-form" class="form-stack">
+        <input type="hidden" id="edit-id" />
+        <label><span data-i18n="form_name"></span> <input type="text" id="name" required /></label>
+        <label><span data-i18n="form_material"></span>
+          <select id="material_id" required></select>
+        </label>
+        <label><span data-i18n="form_length"></span> <input type="text" id="length" required /></label>
+        <label><span data-i18n="form_width"></span> <input type="text" id="width" required /></label>
+        <label><span data-i18n="form_depth"></span> <input type="text" id="depth" required /></label>
+        <label><span data-i18n="form_surface"></span> <input type="text" id="surface" required /></label>
+        <label><span data-i18n="form_description"></span> <textarea id="description" rows="4" data-i18n-placeholder="form_description_ph"></textarea></label>
+        <div id="price-row" class="hidden">
+          <label><span data-i18n="form_price"></span> <input type="number" id="price" step="0.01" min="0" placeholder="0.00" /></label>
+        </div>
+        <label><span data-i18n="form_location"></span>
+          <select id="location_id" required></select>
+        </label>
+        <div id="photo-section" class="hidden">
+          <p class="page-sub" style="margin-top:1rem;font-weight:600;color:var(--text)" data-i18n="form_photos"></p>
+          <p class="page-sub" style="margin-top:0" data-i18n="form_photos_hint"></p>
+          <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp,image/gif" />
+          <button type="button" class="btn btn-ghost" style="margin-top:0.5rem" onclick="uploadSelectedPhoto()" data-i18n="form_upload_image"></button>
+          <div id="photo-list" class="photo-grid"></div>
+        </div>
+        <div id="changelog-section" class="hidden">
+          <p class="page-sub" style="margin-top:1rem;font-weight:600;color:var(--text)" data-i18n="form_activity"></p>
+          <ul id="changelog-list" style="font-size:0.85rem;color:var(--muted);padding-left:1.1rem;margin:0.35rem 0 0"></ul>
+        </div>
+        <p id="form-error" class="error hidden"></p>
+        <button type="submit" class="btn btn-success" style="margin-top:1rem" data-i18n="form_save"></button>
+      </form>
+    </div>
+
+    <div id="storage" class="hidden card card-pad">
+      <h2 class="page-title" data-i18n="storage_title"></h2>
+      <p class="page-sub" data-i18n="storage_sub"></p>
+      <div class="filters">
+        <label><span data-i18n="filter_name"></span> <input type="text" id="filter-name" oninput="renderObjects()" /></label>
+        <label><span data-i18n="filter_location"></span>
+          <select id="filter-location" onchange="renderObjects()"></select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th data-i18n="th_name"></th>
+              <th data-i18n="th_description"></th>
+              <th data-i18n="th_material"></th>
+              <th data-i18n="th_location"></th>
+              <th data-i18n="th_l"></th>
+              <th data-i18n="th_w"></th>
+              <th data-i18n="th_d"></th>
+              <th data-i18n="th_surface"></th>
+              <th class="col-admin-price hidden" data-i18n="th_price"></th>
+              <th data-i18n="th_actions"></th>
+            </tr>
+          </thead>
+          <tbody id="object-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="locations" class="hidden card card-pad">
+      <h2 class="page-title" data-i18n="locations_title"></h2>
+      <p class="page-sub" data-i18n="locations_sub"></p>
+      <label><span data-i18n="locations_new"></span> <input type="text" id="new-location-name" data-i18n-placeholder="locations_ph" /></label>
+      <button type="button" class="btn btn-success" style="margin-top:0.75rem" onclick="addLocation()" data-i18n="locations_add"></button>
+      <p id="locations-error" class="error hidden"></p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th data-i18n="th_name"></th>
+              <th data-i18n="th_actions"></th>
+            </tr>
+          </thead>
+          <tbody id="locations-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="materials" class="hidden card card-pad">
+      <h2 class="page-title" data-i18n="materials_title"></h2>
+      <p class="page-sub" data-i18n="materials_sub"></p>
+      <label><span data-i18n="materials_name"></span> <input type="text" id="new-material-name" data-i18n-placeholder="materials_name_ph" /></label>
+      <label><span data-i18n="materials_desc"></span> <textarea id="new-material-desc" data-i18n-placeholder="materials_desc_ph"></textarea></label>
+      <button type="button" class="btn btn-success" style="margin-top:0.75rem" onclick="addMaterial()" data-i18n="materials_add"></button>
+      <p id="materials-error" class="error hidden"></p>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th data-i18n="th_name"></th>
+              <th data-i18n="th_description"></th>
+              <th data-i18n="th_actions"></th>
+            </tr>
+          </thead>
+          <tbody id="materials-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="qr-modal" class="hidden modal">
+      <h3 class="page-title" style="font-size:1.1rem" data-i18n="qr_title"></h3>
+      <div id="qrcode"></div>
+      <button type="button" class="btn btn-primary" onclick="downloadQRCode()" data-i18n="qr_png"></button>
+      <button type="button" class="btn btn-primary" onclick="downloadQRCodeAsPDF()" data-i18n="qr_pdf"></button>
+      <button type="button" class="btn btn-ghost" onclick="closeQRModal()" data-i18n="qr_close"></button>
+    </div>
+
+    <div id="scan-qr" class="hidden card card-pad">
+      <h2 class="page-title" data-i18n="scan_title"></h2>
+      <p class="page-sub" data-i18n="scan_sub"></p>
+      <video id="scan-video" autoplay playsinline></video>
+      <canvas id="scan-canvas" style="display: none;"></canvas>
+      <p id="scan-result" class="page-sub" style="margin-top:0.75rem" data-i18n="scan_scanning"></p>
+      <button type="button" class="btn btn-ghost" onclick="stopScanning()" data-i18n="scan_stop"></button>
+    </div>
+  </div>
+  </div>
+
+  <script>
+    const BASE_URL = window.location.origin;
+    let supabase = null;
+    let appUser = { is_admin: false, can_edit_objects: false };
+
+    function applyUIMode() {
+      const canEdit = appUser.is_admin || appUser.can_edit_objects;
+      document.getElementById('readonly-banner').classList.toggle('hidden', canEdit);
+      document.getElementById('nav-new').classList.toggle('hidden', !canEdit);
+      document.getElementById('nav-loc').classList.toggle('hidden', !canEdit);
+      document.getElementById('nav-mat').classList.toggle('hidden', !canEdit);
+      document.getElementById('price-row').classList.toggle('hidden', !appUser.is_admin);
+      document.querySelectorAll('.col-admin-price').forEach((el) => {
+        el.classList.toggle('hidden', !appUser.is_admin);
+      });
+    }
+
+    function changelogActionLabel(action) {
+      if (action === 'create') return I18n.t('log_create');
+      if (action === 'update') return I18n.t('log_update');
+      return action;
+    }
+
+    function refreshAppLanguage() {
+      I18n.apply(document.body);
+      I18n.updateLangButtons();
+      document.title = I18n.t('doc_title_app');
+      const editId = document.getElementById('edit-id').value;
+      const formPage = document.getElementById('new-or-edit-object');
+      const ft = document.getElementById('form-title');
+      if (ft && formPage && !formPage.classList.contains('hidden')) {
+        ft.textContent = editId ? I18n.t('form_title_edit') : I18n.t('form_title_create');
+      }
+      if (document.getElementById('app-main').classList.contains('hidden')) return;
+      const order = ['storage', 'locations', 'materials', 'new-or-edit-object', 'scan-qr'];
+      const vis = order.find((id) => !document.getElementById(id).classList.contains('hidden'));
+      if (vis === 'storage') renderObjects();
+      else if (vis === 'locations') renderLocations();
+      else if (vis === 'materials') renderMaterialsList();
+      else if (vis === 'new-or-edit-object') refreshLocationMaterialSelects().catch(console.error);
+    }
+
+    function startNewObject() {
+      document.getElementById('object-form').reset();
+      document.getElementById('edit-id').value = '';
+      document.getElementById('photo-list').innerHTML = '';
+      document.getElementById('changelog-list').innerHTML = '';
+      showPage('new-or-edit-object');
+    }
+
+    function renderPhotoList(objectId, photos) {
+      const el = document.getElementById('photo-list');
+      el.innerHTML = '';
+      (photos || []).forEach((p) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'photo-thumb';
+        const img = document.createElement('img');
+        img.src = p.url;
+        img.alt = '';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-danger';
+        btn.textContent = '×';
+        btn.onclick = () => deletePhoto(objectId, p.id);
+        wrap.appendChild(img);
+        wrap.appendChild(btn);
+        el.appendChild(wrap);
+      });
+    }
+
+    async function deletePhoto(objectId, photoId) {
+      if (!confirm(I18n.t('confirm_remove_photo'))) return;
+      try {
+        await axios.delete(`/api/objects/${objectId}/photos/${photoId}`);
+        const r = await axios.get(`/api/objects/${objectId}`);
+        renderPhotoList(objectId, r.data.photos);
+      } catch (e) {
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function uploadSelectedPhoto() {
+      const id = document.getElementById('edit-id').value;
+      const input = document.getElementById('photo-input');
+      if (!id) {
+        alert(I18n.t('alert_photo_save_first'));
+        return;
+      }
+      if (!input.files || !input.files[0]) {
+        alert(I18n.t('alert_choose_image'));
+        return;
+      }
+      const fd = new FormData();
+      fd.append('photo', input.files[0]);
+      try {
+        await axios.post(`/api/objects/${id}/photos`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        input.value = '';
+        const r = await axios.get(`/api/objects/${id}`);
+        renderPhotoList(id, r.data.photos);
+      } catch (e) {
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    function renderChangelog(list) {
+      const ul = document.getElementById('changelog-list');
+      ul.innerHTML = '';
+      (list || []).forEach((e) => {
+        const li = document.createElement('li');
+        const who = e.actor_email || I18n.t('unknown_user');
+        const when = new Date(e.at).toLocaleString();
+        li.textContent = `${changelogActionLabel(e.action)} — ${who} — ${when}`;
+        ul.appendChild(li);
+      });
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const d = document.createElement('div');
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+
+    function truncate(s, n) {
+      const t = String(s || '');
+      return t.length <= n ? t : t.slice(0, n) + '…';
+    }
+
+    async function loadConfig() {
+      const r = await fetch('/api/config');
+      if (!r.ok) throw new Error('Config failed');
+      return r.json();
+    }
+
+    async function signOut() {
+      if (supabase) await supabase.auth.signOut();
+      window.location.href = '/login';
+    }
+
+    function setupAxios() {
+      axios.interceptors.request.use(async (config) => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          config.headers.Authorization = `Bearer ${session.access_token}`;
+        }
+        return config;
+      });
+    }
+
+    async function refreshLocationMaterialSelects() {
+      const locSel = document.getElementById('location_id');
+      const matSel = document.getElementById('material_id');
+      const filterLoc = document.getElementById('filter-location');
+      const [locRes, matRes] = await Promise.all([
+        axios.get('/api/locations'),
+        axios.get('/api/materials'),
+      ]);
+      const locs = locRes.data || [];
+      const mats = matRes.data || [];
+
+      const prevL = locSel.value;
+      const prevM = matSel.value;
+      locSel.innerHTML = `<option value="">${I18n.t('opt_select')}</option>`;
+      locs.forEach((l) => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.name;
+        locSel.appendChild(o);
+      });
+      if (prevL) locSel.value = prevL;
+
+      matSel.innerHTML = `<option value="">${I18n.t('opt_select')}</option>`;
+      mats.forEach((m) => {
+        const o = document.createElement('option');
+        o.value = m.id;
+        o.textContent = m.name;
+        matSel.appendChild(o);
+      });
+      if (prevM) matSel.value = prevM;
+
+      const prevF = filterLoc.value;
+      filterLoc.innerHTML = `<option value="">${I18n.t('opt_all_locations')}</option>`;
+      locs.forEach((l) => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.name;
+        filterLoc.appendChild(o);
+      });
+      if (prevF) filterLoc.value = prevF;
+    }
+
+    function showPage(page) {
+      document.getElementById('new-or-edit-object').classList.add('hidden');
+      document.getElementById('storage').classList.add('hidden');
+      document.getElementById('locations').classList.add('hidden');
+      document.getElementById('materials').classList.add('hidden');
+      document.getElementById('scan-qr').classList.add('hidden');
+      document.getElementById(page).classList.remove('hidden');
+
+      if (page === 'new-or-edit-object') {
+        const editId = document.getElementById('edit-id').value;
+        const canEdit = appUser.is_admin || appUser.can_edit_objects;
+        document.getElementById('form-title').textContent = editId
+          ? I18n.t('form_title_edit')
+          : I18n.t('form_title_create');
+        document.getElementById('form-error').classList.add('hidden');
+        if (!editId || !canEdit) {
+          document.getElementById('photo-section').classList.add('hidden');
+          document.getElementById('changelog-section').classList.add('hidden');
+          if (!editId) {
+            document.getElementById('photo-list').innerHTML = '';
+            document.getElementById('changelog-list').innerHTML = '';
+          }
+        } else {
+          document.getElementById('photo-section').classList.remove('hidden');
+          document.getElementById('changelog-section').classList.remove('hidden');
+        }
+        refreshLocationMaterialSelects().catch(console.error);
+      } else if (page === 'scan-qr') {
+        startScanning();
+      } else if (page === 'storage') {
+        refreshLocationMaterialSelects().then(renderObjects).catch(console.error);
+      } else if (page === 'locations') {
+        renderLocations();
+      } else if (page === 'materials') {
+        renderMaterialsList();
+      }
+    }
+
+    document.getElementById('object-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const errorElement = document.getElementById('form-error');
+      const id = document.getElementById('edit-id').value;
+      const length = document.getElementById('length').value.replace(',', '.');
+      const width = document.getElementById('width').value.replace(',', '.');
+      const depth = document.getElementById('depth').value.replace(',', '.');
+
+      if (isNaN(parseFloat(length)) || isNaN(parseFloat(width)) || isNaN(parseFloat(depth))) {
+        errorElement.textContent = I18n.t('err_valid_dims');
+        errorElement.classList.remove('hidden');
+        return;
+      }
+
+      const location_id = document.getElementById('location_id').value;
+      const material_id = document.getElementById('material_id').value;
+      if (!location_id || !material_id) {
+        errorElement.textContent = I18n.t('err_loc_mat');
+        errorElement.classList.remove('hidden');
+        return;
+      }
+
+      const object = {
+        name: document.getElementById('name').value,
+        length: parseFloat(length),
+        width: parseFloat(width),
+        depth: parseFloat(depth),
+        surface: document.getElementById('surface').value,
+        description: document.getElementById('description').value,
+        location_id,
+        material_id,
+      };
+      if (appUser.is_admin) {
+        object.price = document.getElementById('price').value;
+      }
+
+      try {
+        if (id) {
+          await axios.put(`/api/objects/${id}`, object);
+        } else {
+          await axios.post('/api/objects', object);
+        }
+        e.target.reset();
+        document.getElementById('edit-id').value = '';
+        document.getElementById('form-title').textContent = I18n.t('form_title_create');
+        errorElement.classList.add('hidden');
+        showPage('storage');
+      } catch (error) {
+        console.error('Error saving object:', error);
+        errorElement.textContent =
+          I18n.t('err_save_object') + ' ' + (error.response?.data?.error || error.message);
+        errorElement.classList.remove('hidden');
+      }
+    });
+
+    async function renderObjects() {
+      const filterName = document.getElementById('filter-name').value.toLowerCase();
+      const filterLocation = document.getElementById('filter-location').value;
+      const table = document.getElementById('object-table');
+      table.innerHTML = `<tr><td colspan="10">${I18n.t('state_loading')}</td></tr>`;
+
+      try {
+        const response = await axios.get('/api/objects');
+        const objects = response.data;
+        table.innerHTML = '';
+        const canEdit = appUser.is_admin || appUser.can_edit_objects;
+
+        objects.forEach((obj) => {
+          if (!obj.name.toLowerCase().includes(filterName)) return;
+          if (filterLocation && obj.location_id !== filterLocation) return;
+
+          const descPreview = escapeHtml(truncate(obj.description || '', 72));
+          const descTitle = escapeHtml(obj.description || '');
+          const matTitle = escapeHtml(obj.material_description || '');
+          const dash = I18n.t('dash');
+          const matCell = `<strong>${escapeHtml(obj.material_name || dash)}</strong><div class="mat-preview" title="${matTitle}">${escapeHtml(truncate(obj.material_description, 80)) || dash}</div>`;
+
+          const editBtns = canEdit
+            ? `<button type="button" class="action-btn" onclick="editObject('${obj.id}')">${I18n.t('btn_edit')}</button>
+               <button type="button" class="action-btn danger" onclick="deleteObject('${obj.id}')">${I18n.t('btn_delete')}</button>`
+            : '';
+          const priceTd = `<td class="col-admin-price${appUser.is_admin ? '' : ' hidden'}">${appUser.is_admin && obj.price != null ? escapeHtml(String(obj.price)) : appUser.is_admin ? dash : ''}</td>`;
+
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td><a href="/object/${obj.id}">${escapeHtml(obj.name)}</a></td>
+            <td><span class="mat-preview" title="${descTitle}">${descPreview || dash}</span></td>
+            <td>${matCell}</td>
+            <td>${escapeHtml(obj.location_name || dash)}</td>
+            <td>${obj.length}</td>
+            <td>${obj.width}</td>
+            <td>${obj.depth}</td>
+            <td>${escapeHtml(obj.surface)}</td>
+            ${priceTd}
+            <td>
+              ${editBtns}
+              <button type="button" class="action-btn" onclick="showQRCode('${obj.id}')">${I18n.t('btn_qr')}</button>
+            </td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error fetching objects:', error);
+        table.innerHTML = `<tr><td colspan="10">${I18n.t('err_load_list')}</td></tr>`;
+      }
+    }
+
+    async function editObject(id) {
+      try {
+        await refreshLocationMaterialSelects();
+        const response = await axios.get(`/api/objects/${id}`);
+        const obj = response.data;
+        document.getElementById('name').value = obj.name;
+        document.getElementById('length').value = obj.length;
+        document.getElementById('width').value = obj.width;
+        document.getElementById('depth').value = obj.depth;
+        document.getElementById('surface').value = obj.surface;
+        document.getElementById('description').value = obj.description || '';
+        document.getElementById('price').value =
+          obj.price != null && obj.price !== '' ? obj.price : '';
+        document.getElementById('location_id').value = obj.location_id;
+        document.getElementById('material_id').value = obj.material_id;
+        document.getElementById('edit-id').value = id;
+        document.getElementById('form-title').textContent = I18n.t('form_title_edit');
+        document.getElementById('form-error').classList.add('hidden');
+        showPage('new-or-edit-object');
+        if (appUser.is_admin || appUser.can_edit_objects) {
+          renderPhotoList(id, obj.photos);
+          renderChangelog(obj.changelog || []);
+        }
+      } catch (error) {
+        console.error('Error fetching object:', error);
+      }
+    }
+
+    async function deleteObject(id) {
+      if (!confirm(I18n.t('confirm_delete_object'))) return;
+      try {
+        await axios.delete(`/api/objects/${id}`);
+        renderObjects();
+      } catch (error) {
+        console.error('Error deleting object:', error);
+      }
+    }
+
+    async function renderLocations() {
+      const table = document.getElementById('locations-table');
+      const err = document.getElementById('locations-error');
+      err.classList.add('hidden');
+      table.innerHTML = `<tr><td colspan="2">${I18n.t('state_loading')}</td></tr>`;
+      try {
+        const { data } = await axios.get('/api/locations');
+        table.innerHTML = '';
+        (data || []).forEach((l) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${escapeHtml(l.name)}</td>
+            <td><button type="button" class="action-btn danger" onclick="deleteLocation('${l.id}')">${I18n.t('btn_delete')}</button></td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+        table.innerHTML = '';
+      }
+    }
+
+    async function addLocation() {
+      const input = document.getElementById('new-location-name');
+      const err = document.getElementById('locations-error');
+      err.classList.add('hidden');
+      try {
+        await axios.post('/api/locations', { name: input.value });
+        input.value = '';
+        await renderLocations();
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+      }
+    }
+
+    async function deleteLocation(id) {
+      if (!confirm(I18n.t('confirm_delete_location'))) return;
+      try {
+        await axios.delete(`/api/locations/${id}`);
+        await renderLocations();
+      } catch (e) {
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function renderMaterialsList() {
+      const table = document.getElementById('materials-table');
+      const err = document.getElementById('materials-error');
+      err.classList.add('hidden');
+      table.innerHTML = `<tr><td colspan="3">${I18n.t('state_loading')}</td></tr>`;
+      try {
+        const { data } = await axios.get('/api/materials');
+        table.innerHTML = '';
+        (data || []).forEach((m) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${escapeHtml(m.name)}</td>
+            <td>${escapeHtml(truncate(m.description, 120))}</td>
+            <td><button type="button" class="action-btn danger" onclick="deleteMaterial('${m.id}')">${I18n.t('btn_delete')}</button></td>
+          `;
+          table.appendChild(row);
+        });
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+        table.innerHTML = '';
+      }
+    }
+
+    async function addMaterial() {
+      const err = document.getElementById('materials-error');
+      err.classList.add('hidden');
+      try {
+        await axios.post('/api/materials', {
+          name: document.getElementById('new-material-name').value,
+          description: document.getElementById('new-material-desc').value,
+        });
+        document.getElementById('new-material-name').value = '';
+        document.getElementById('new-material-desc').value = '';
+        await renderMaterialsList();
+      } catch (e) {
+        err.textContent = e.response?.data?.error || e.message;
+        err.classList.remove('hidden');
+      }
+    }
+
+    async function deleteMaterial(id) {
+      if (!confirm(I18n.t('confirm_delete_material'))) return;
+      try {
+        await axios.delete(`/api/materials/${id}`);
+        await renderMaterialsList();
+      } catch (e) {
+        alert(e.response?.data?.error || e.message);
+      }
+    }
+
+    async function showQRCode(id) {
+      try {
+        const qrContent = `${BASE_URL}/object/${id}`;
+        document.getElementById('qr-modal').classList.remove('hidden');
+        const qrDiv = document.getElementById('qrcode');
+        qrDiv.innerHTML = '';
+        new QRCode(qrDiv, {
+          text: qrContent,
+          width: 200,
+          height: 200,
+        });
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
+    }
+
+    function closeQRModal() {
+      document.getElementById('qr-modal').classList.add('hidden');
+    }
+
+    function downloadQRCode() {
+      const tempQR = document.querySelector('#qrcode canvas');
+      if (!tempQR) return;
+      const link = document.createElement('a');
+      link.href = tempQR.toDataURL();
+      link.download = 'object_qr.png';
+      link.click();
+    }
+
+    function downloadQRCodeAsPDF() {
+      const tempQR = document.querySelector('#qrcode canvas');
+      if (!tempQR) return;
+      const { jsPDF } = window.jspdf;
+      const qrDataURL = tempQR.toDataURL();
+      const pdf = new jsPDF();
+      pdf.addImage(qrDataURL, 'PNG', 10, 10, 50, 50);
+      pdf.save('object_qr.pdf');
+    }
+
+    let video = null;
+    let scanning = false;
+    const uuidPathRe = /\/object\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(\?|$|#)/i;
+
+    async function startScanning() {
+      video = document.getElementById('scan-video');
+      const canvas = document.getElementById('scan-canvas');
+      const resultElement = document.getElementById('scan-result');
+      scanning = true;
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+        });
+        video.srcObject = stream;
+        video.play();
+        resultElement.textContent = I18n.t('scan_camera');
+
+        const ctx = canvas.getContext('2d');
+
+        function tick() {
+          if (!scanning) return;
+          canvas.height = video.videoHeight;
+          canvas.width = video.videoWidth;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code) {
+            const url = code.data;
+            resultElement.textContent = `${I18n.t('scan_detected')} ${url}`;
+            if (uuidPathRe.test(url) || url.includes('/object/')) {
+              const m = url.match(/\/object\/([0-9a-f-]{36})/i);
+              if (m) {
+                resultElement.textContent = I18n.t('scan_opening');
+                window.location.href = `/object/${m[1]}`;
+                return;
+              }
+            }
+            resultElement.textContent = I18n.t('scan_invalid');
+          } else {
+            resultElement.textContent = I18n.t('scan_scanning');
+          }
+          requestAnimationFrame(tick);
+        }
+
+        tick();
+      } catch (err) {
+        console.error('Error accessing camera:', err);
+        resultElement.textContent = I18n.t('scan_cam_err') + ' ' + err.message;
+      }
+    }
+
+    function stopScanning() {
+      scanning = false;
+      if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach((track) => track.stop());
+        video.srcObject = null;
+      }
+      showPage('storage');
+    }
+
+    async function boot() {
+      try {
+        const cfg = await loadConfig();
+        const { createClient } = await import(
+          'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
+        );
+        supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
+          auth: {
+            detectSessionInUrl: true,
+            flowType: 'pkce',
+          },
+        });
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          window.location.href = '/login';
+          return;
+        }
+
+        setupAxios();
+
+        const me = await axios.get('/api/profiles/me');
+        if (!me.data.is_approved) {
+          document.getElementById('pending-gate').classList.remove('hidden');
+          return;
+        }
+
+        document.getElementById('app-main').classList.remove('hidden');
+        appUser = {
+          is_admin: !!me.data.is_admin,
+          can_edit_objects: !!me.data.can_edit_objects || !!me.data.is_admin,
+        };
+        applyUIMode();
+        if (me.data.is_admin) {
+          document.getElementById('nav-admin').classList.remove('hidden');
+        }
+        showPage('storage');
+      } catch (e) {
+        console.error(e);
+        alert(I18n.t('boot_fail'));
+      }
+    }
+
+    document.getElementById('lang-en').addEventListener('click', () => I18n.setLang('en'));
+    document.getElementById('lang-fi').addEventListener('click', () => I18n.setLang('fi'));
+    document.getElementById('lang-en-pending').addEventListener('click', () => I18n.setLang('en'));
+    document.getElementById('lang-fi-pending').addEventListener('click', () => I18n.setLang('fi'));
+    window.addEventListener('applangchange', refreshAppLanguage);
+    I18n.apply(document.body);
+    I18n.updateLangButtons();
+    document.title = I18n.t('doc_title_app');
+
+    boot();
+  </script>
+</body>
+</html>

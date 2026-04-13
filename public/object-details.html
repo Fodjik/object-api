@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Object details</title>
+  <link rel="stylesheet" href="/theme.css" />
+  <script src="/i18n.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <div class="card card-pad">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:0.5rem;margin-bottom:0.75rem">
+        <span class="nav-spacer" style="flex:1;min-width:0"></span>
+        <button type="button" class="btn btn-ghost" data-lang-btn="en" id="lang-en" data-i18n="lang_en"></button>
+        <button type="button" class="btn btn-ghost" data-lang-btn="fi" id="lang-fi" data-i18n="lang_fi"></button>
+      </div>
+      <h1 class="page-title" data-i18n="obj_public_title"></h1>
+      <p class="page-sub" data-i18n="obj_public_sub"></p>
+      <div id="object-details"></div>
+      <p id="error" class="error hidden"></p>
+      <button type="button" class="btn btn-primary" style="margin-top:1rem" onclick="window.location.href='/'" data-i18n="obj_back"></button>
+    </div>
+  </div>
+
+  <script>
+    function changelogActionLabel(action) {
+      if (action === 'create') return I18n.t('log_create');
+      if (action === 'update') return I18n.t('log_update');
+      return action;
+    }
+
+    function refreshStaticUi() {
+      I18n.apply(document.body);
+      I18n.updateLangButtons();
+      document.title = I18n.t('doc_title_object');
+    }
+
+    async function loadObjectDetails() {
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const id = parts[parts.length - 1];
+      const detailsDiv = document.getElementById('object-details');
+      const errorElement = document.getElementById('error');
+      const dash = I18n.t('dash');
+
+      try {
+        const response = await axios.get(`/api/public/objects/${id}`);
+        const obj = response.data;
+
+        const photosHtml =
+          obj.photos && obj.photos.length
+            ? `<div class="photo-grid" style="margin:1rem 0">${obj.photos
+                .map(
+                  (p) =>
+                    `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener"><div class="photo-thumb" style="width:7rem;height:7rem"><img src="${escapeHtml(p.url)}" alt="" /></div></a>`
+                )
+                .join('')}</div>`
+            : `<p class="page-sub">${escapeHtml(I18n.t('obj_no_photos'))}</p>`;
+
+        const logHtml =
+          obj.changelog && obj.changelog.length
+            ? `<ul style="margin:0.5rem 0 0;padding-left:1.2rem;font-size:0.88rem;color:var(--muted)">${obj.changelog
+                .map(
+                  (c) =>
+                    `<li>${escapeHtml(changelogActionLabel(c.action))} — ${escapeHtml(new Date(c.at).toLocaleString())}</li>`
+                )
+                .join('')}</ul>`
+            : '';
+
+        const mm = I18n.t('unit_mm');
+        detailsDiv.innerHTML = `
+          ${photosHtml}
+          <dl style="margin:0;display:grid;gap:0.35rem 1rem;font-size:0.95rem">
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_name'))}</dt>
+            <dd style="margin:0;font-weight:600">${escapeHtml(obj.name)}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_description'))}</dt>
+            <dd style="margin:0;white-space:pre-wrap">${escapeHtml(obj.description || dash)}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_material'))}</dt>
+            <dd style="margin:0">${escapeHtml(obj.material_name || dash)}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_material_notes'))}</dt>
+            <dd style="margin:0">${escapeHtml(obj.material_description || dash)}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_dimensions'))}</dt>
+            <dd style="margin:0">${obj.length} × ${obj.width} × ${obj.depth} ${mm}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_surface'))}</dt>
+            <dd style="margin:0">${escapeHtml(obj.surface)}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_location'))}</dt>
+            <dd style="margin:0">${escapeHtml(obj.location_name || dash)}</dd>
+            <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_activity'))}</dt>
+            <dd style="margin:0">${logHtml || dash}</dd>
+          </dl>
+        `;
+      } catch (error) {
+        console.error('Error fetching object:', error);
+        errorElement.textContent =
+          I18n.t('obj_err') + ' ' + (error.response?.data?.error || error.message);
+        errorElement.classList.remove('hidden');
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s == null ? '' : String(s);
+      return d.innerHTML;
+    }
+
+    document.getElementById('lang-en').addEventListener('click', () => I18n.setLang('en'));
+    document.getElementById('lang-fi').addEventListener('click', () => I18n.setLang('fi'));
+    window.addEventListener('applangchange', () => {
+      refreshStaticUi();
+      loadObjectDetails();
+    });
+    refreshStaticUi();
+    loadObjectDetails();
+  </script>
+</body>
+</html>

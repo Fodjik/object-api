@@ -48,16 +48,6 @@
         const response = await axios.get(`/api/public/objects/${id}`);
         const obj = response.data;
 
-        const photosHtml =
-          obj.photos && obj.photos.length
-            ? `<div class="photo-grid" style="margin:1rem 0">${obj.photos
-                .map(
-                  (p) =>
-                    `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener"><div class="photo-thumb" style="width:7rem;height:7rem"><img src="${escapeHtml(p.url)}" alt="" /></div></a>`
-                )
-                .join('')}</div>`
-            : `<p class="page-sub">${escapeHtml(I18n.t('obj_no_photos'))}</p>`;
-
         const logHtml =
           obj.changelog && obj.changelog.length
             ? `<ul style="margin:0.5rem 0 0;padding-left:1.2rem;font-size:0.88rem;color:var(--muted)">${obj.changelog
@@ -70,7 +60,6 @@
 
         const mm = I18n.t('unit_mm');
         detailsDiv.innerHTML = `
-          ${photosHtml}
           <dl style="margin:0;display:grid;gap:0.35rem 1rem;font-size:0.95rem">
             <dt class="page-sub" style="margin:0;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em">${escapeHtml(I18n.t('dt_name'))}</dt>
             <dd style="margin:0;font-weight:600">${escapeHtml(obj.name)}</dd>
@@ -115,3 +104,4 @@
   </script>
 </body>
 </html>
+

@@ -1,7 +1,3 @@
-/**
- * UI strings: English (en) and Finnish (fi).
- * Language persists in localStorage under app-lang.
- */
 (function () {
   const STORAGE_KEY = 'app-lang';
 
@@ -47,10 +43,6 @@
       form_description_ph: 'Anything specific to this piece…',
       form_price: 'Price (admin only, not shown on QR page)',
       form_location: 'Storage location',
-      form_photos: 'Photos',
-      form_photos_hint:
-        'Shown only on the QR / public object page — not in the storage table.',
-      form_upload_image: 'Upload image',
       form_activity: 'Activity log',
       form_save: 'Save object',
 
@@ -123,11 +115,6 @@
         'Delete this location? Objects using it must be moved first.',
       confirm_delete_material:
         'Delete this material? Objects using it must be reassigned first.',
-      confirm_remove_photo: 'Remove this photo?',
-
-      alert_photo_save_first:
-        'Save the object first, then add photos while editing.',
-      alert_choose_image: 'Choose an image file.',
 
       log_create: 'created',
       log_update: 'updated',
@@ -189,10 +176,9 @@
       admin_loading: 'Loading…',
 
       obj_public_title: 'Object details',
-      obj_public_sub: 'From QR or shared link (photos and full description).',
+      obj_public_sub: 'From QR or shared link (full description).',
       obj_back: 'Back to app',
       obj_err: 'Error:',
-      obj_no_photos: 'No photos for this object.',
       dt_name: 'Name',
       dt_description: 'Description',
       dt_material: 'Material',
@@ -243,10 +229,6 @@
       form_description_ph: 'Tähän kappaleeseen liittyvät tiedot…',
       form_price: 'Hinta (vain ylläpito, ei QR-sivulla)',
       form_location: 'Varastosijainti',
-      form_photos: 'Kuvat',
-      form_photos_hint:
-        'Näkyvät vain QR- / julkisella kohdesivulla — eivät varastolistalla.',
-      form_upload_image: 'Lähetä kuva',
       form_activity: 'Tapahtumaloki',
       form_save: 'Tallenna kohde',
 
@@ -319,11 +301,6 @@
         'Poistetaanko tämä sijainti? Kohteet on siirrettävä ensin muualle.',
       confirm_delete_material:
         'Poistetaanko tämä materiaali? Kohteille on valittava toinen materiaali.',
-      confirm_remove_photo: 'Poistetaanko tämä kuva?',
-
-      alert_photo_save_first:
-        'Tallenna kohde ensin, sitten lisää kuvia muokkaustilassa.',
-      alert_choose_image: 'Valitse kuvatiedosto.',
 
       log_create: 'luotu',
       log_update: 'päivitetty',
@@ -386,10 +363,9 @@
       admin_loading: 'Ladataan…',
 
       obj_public_title: 'Kohteen tiedot',
-      obj_public_sub: 'QR- tai jaetusta linkistä (kuvat ja täysi kuvaus).',
+      obj_public_sub: 'QR- tai jaetusta linkistä (täysi kuvaus).',
       obj_back: 'Takaisin sovellukseen',
       obj_err: 'Virhe:',
-      obj_no_photos: 'Ei kuvia tälle kohteelle.',
       dt_name: 'Nimi',
       dt_description: 'Kuvaus',
       dt_material: 'Materiaali',

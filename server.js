@@ -2,7 +2,6 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const cors = require('cors');
 const path = require('path');
-const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,8 +10,6 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey =
   process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const STORAGE_BUCKET = 'object-images';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing SUPABASE_URL and SUPABASE_ANON_KEY (or legacy SUPABASE_KEY).');
@@ -26,15 +23,6 @@ const supabaseAdmin = supabaseServiceKey
     })
   : null;
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 6 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const ok = /^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype);
-    cb(ok ? null : new Error('Only JPEG, PNG, WebP, or GIF images are allowed'), ok);
-  },
-});
-
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -44,11 +32,6 @@ function userClientFromToken(token) {
     global: { headers: { Authorization: `Bearer ${token}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
-}
-
-function publicStorageUrl(storagePath) {
-  const base = supabaseUrl.replace(/\/$/, '');
-  return `${base}/storage/v1/object/public/${STORAGE_BUCKET}/${storagePath}`;
 }
 
 async function getBearerAuth(req) {
@@ -185,12 +168,6 @@ app.get('/api/public/objects/:id', async (req, res) => {
       res.status(404).json({ error: 'Object not found' });
       return;
     }
-    const { data: photos } = await supabaseAdmin
-      .from('object_photos')
-      .select('id, storage_path, sort_order')
-      .eq('object_id', id)
-      .order('sort_order', { ascending: true });
-
     const { data: changelog } = await supabaseAdmin
       .from('object_changelog')
       .select('action, at')
@@ -212,10 +189,6 @@ app.get('/api/public/objects/:id', async (req, res) => {
       material_description: mat?.description ?? '',
       created_at: data.created_at,
       updated_at: data.updated_at,
-      photos: (photos || []).map((p) => ({
-        id: p.id,
-        url: publicStorageUrl(p.storage_path),
-      })),
       changelog: changelog || [],
     });
   } catch (e) {
@@ -378,19 +351,6 @@ async function appendChangelog(sb, objectId, actorId, action) {
   });
 }
 
-async function loadPhotosForObject(sb, objectId) {
-  const { data, error } = await sb
-    .from('object_photos')
-    .select('id, storage_path, sort_order')
-    .eq('object_id', objectId)
-    .order('sort_order', { ascending: true });
-  if (error) throw error;
-  return (data || []).map((p) => ({
-    id: p.id,
-    url: publicStorageUrl(p.storage_path),
-  }));
-}
-
 async function loadChangelogDetail(sb, objectId) {
   const { data, error } = await sb
     .from('object_changelog')
@@ -469,14 +429,12 @@ app.get('/api/objects/:id', requireApproved, async (req, res) => {
     }
     const isAdmin = !!req.profile.is_admin;
     const base = mapObjectListRow(data, isAdmin);
-    const [photos, changelog, names] = await Promise.all([
-      loadPhotosForObject(req.sb, data.id),
+    const [changelog, names] = await Promise.all([
       loadChangelogDetail(req.sb, data.id),
       loadCreatorEditors(req.sb, data.created_by, data.updated_by),
     ]);
     res.json({
       ...base,
-      photos,
       changelog,
       ...names,
     });
@@ -543,7 +501,6 @@ app.post('/api/objects', requireApproved, requireCanEdit, async (req, res) => {
     const isAdmin = !!req.profile.is_admin;
     res.status(201).json({
       ...mapObjectListRow(data, isAdmin),
-      photos: [],
       changelog: await loadChangelogDetail(req.sb, data.id),
       ...(await loadCreatorEditors(req.sb, data.created_by, data.updated_by)),
     });
@@ -613,7 +570,6 @@ app.put('/api/objects/:id', requireApproved, requireCanEdit, async (req, res) =>
     const isAdmin = !!req.profile.is_admin;
     res.json({
       ...mapObjectListRow(row, isAdmin),
-      photos: await loadPhotosForObject(req.sb, row.id),
       changelog: await loadChangelogDetail(req.sb, row.id),
       ...(await loadCreatorEditors(req.sb, row.created_by, row.updated_by)),
     });
@@ -625,16 +581,6 @@ app.put('/api/objects/:id', requireApproved, requireCanEdit, async (req, res) =>
 app.delete('/api/objects/:id', requireApproved, requireCanEdit, async (req, res) => {
   const id = req.params.id;
   try {
-    if (supabaseAdmin) {
-      const { data: photos } = await supabaseAdmin
-        .from('object_photos')
-        .select('storage_path')
-        .eq('object_id', id);
-      const paths = (photos || []).map((p) => p.storage_path).filter(Boolean);
-      if (paths.length) {
-        await supabaseAdmin.storage.from(STORAGE_BUCKET).remove(paths);
-      }
-    }
     const { data, error } = await req.sb
       .from('objects')
       .delete()
@@ -646,99 +592,6 @@ app.delete('/api/objects/:id', requireApproved, requireCanEdit, async (req, res)
       return;
     }
     res.json({ message: 'Object deleted' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.post(
-  '/api/objects/:id/photos',
-  requireApproved,
-  requireCanEdit,
-  (req, res, next) => {
-    upload.single('photo')(req, res, (err) => {
-      if (err) {
-        res.status(400).json({ error: err.message || 'Upload failed' });
-        return;
-      }
-      next();
-    });
-  },
-  async (req, res) => {
-    if (!assertServiceRole(res)) return;
-    const objectId = req.params.id;
-    const file = req.file;
-    if (!file) {
-      res.status(400).json({ error: 'Missing file field "photo"' });
-      return;
-    }
-    const ext = (file.mimetype.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '');
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
-    const storagePath = `objects/${objectId}/${fileName}`;
-    try {
-      const { data: obj, error: oe } = await req.sb
-        .from('objects')
-        .select('id')
-        .eq('id', objectId)
-        .maybeSingle();
-      if (oe) throw oe;
-      if (!obj) {
-        res.status(404).json({ error: 'Object not found' });
-        return;
-      }
-      const { error: upErr } = await supabaseAdmin.storage
-        .from(STORAGE_BUCKET)
-        .upload(storagePath, file.buffer, {
-          contentType: file.mimetype,
-          upsert: false,
-        });
-      if (upErr) throw upErr;
-      const { data: row, error: insErr } = await req.sb
-        .from('object_photos')
-        .insert({
-          object_id: objectId,
-          storage_path: storagePath,
-          sort_order: Date.now(),
-        })
-        .select('id, storage_path, sort_order')
-        .single();
-      if (insErr) {
-        await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([storagePath]);
-        throw insErr;
-      }
-      res.status(201).json({
-        id: row.id,
-        url: publicStorageUrl(row.storage_path),
-      });
-    } catch (e) {
-      console.error('photo upload:', e);
-      res.status(500).json({ error: e.message });
-    }
-  }
-);
-
-app.delete('/api/objects/:id/photos/:photoId', requireApproved, requireCanEdit, async (req, res) => {
-  if (!assertServiceRole(res)) return;
-  const { id: objectId, photoId } = req.params;
-  try {
-    const { data: row, error } = await req.sb
-      .from('object_photos')
-      .select('id, storage_path')
-      .eq('id', photoId)
-      .eq('object_id', objectId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!row) {
-      res.status(404).json({ error: 'Photo not found' });
-      return;
-    }
-    await supabaseAdmin.storage.from(STORAGE_BUCKET).remove([row.storage_path]);
-    const { error: delErr } = await req.sb
-      .from('object_photos')
-      .delete()
-      .eq('id', photoId);
-    if (delErr) throw delErr;
-    res.json({ message: 'Deleted' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

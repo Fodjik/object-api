@@ -1,4 +1,3 @@
-/* Shared theme — object-storage-app */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 
 :root {
@@ -333,37 +332,6 @@ table.data tbody tr:hover td {
 .center-card {
   max-width: 22rem;
   margin: 3rem auto;
-}
-
-.photo-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  margin-top: 0.75rem;
-}
-
-.photo-thumb {
-  position: relative;
-  width: 5.5rem;
-  height: 5.5rem;
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.photo-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.photo-thumb button {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  font-size: 0.65rem;
-  padding: 0.15rem 0.35rem;
 }
 
 .readonly-banner {
